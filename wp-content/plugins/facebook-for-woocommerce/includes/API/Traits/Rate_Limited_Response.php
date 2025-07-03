@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,9 +8,9 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook\API\Traits;
+namespace WooCommerce\Facebook\API\Traits;
 
-defined( 'ABSPATH' ) or exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Rate limited response trait.
@@ -119,6 +118,4 @@ trait Rate_Limited_Response {
 
 		return ! empty( $usage_data['estimated_time_to_regain_access'] ) ? (int) $usage_data['estimated_time_to_regain_access'] : null;
 	}
-
-
 }

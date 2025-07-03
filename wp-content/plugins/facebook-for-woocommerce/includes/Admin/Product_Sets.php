@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,13 +8,12 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook\Admin;
+namespace WooCommerce\Facebook\Admin;
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
+defined( 'ABSPATH' ) || exit;
 
-use SkyVerge\WooCommerce\PluginFramework\v5_5_4 as Framework;
+use WP_Term;
+use WooCommerce\Facebook\RolloutSwitches;
 
 /**
  * General handler for the product set admin functionality.
@@ -33,15 +31,15 @@ class Product_Sets {
 	 */
 	protected $allowed_html = array(
 		'label' => array(
-			'for' => array(),
+			'for' => [],
 		),
 		'input' => array(
-			'type' => array(),
-			'name' => array(),
-			'id'   => array(),
+			'type' => [],
+			'name' => [],
+			'id'   => [],
 		),
 		'p'     => array(
-			'class' => array(),
+			'class' => [],
 		),
 	);
 
@@ -61,56 +59,72 @@ class Product_Sets {
 	 * @since 2.3.0
 	 */
 	public function __construct() {
-
 		$this->categories_field = \WC_Facebookcommerce::PRODUCT_SET_META;
-
 		// add taxonomy custom field
 		add_action( 'fb_product_set_add_form_fields', array( $this, 'category_field_on_new' ) );
 		add_action( 'fb_product_set_edit_form', array( $this, 'category_field_on_edit' ) );
-
 		// save custom field data
 		add_action( 'created_fb_product_set', array( $this, 'save_custom_field' ), 10, 2 );
 		add_action( 'edited_fb_product_set', array( $this, 'save_custom_field' ), 10, 2 );
+		// show a banner about chnages to product sets sync
+		add_action( 'admin_notices', array( $this, 'display_fb_product_sets_banner' ) );
+	}
+
+	public function display_fb_product_sets_banner() {
+		if ( isset( $_GET['taxonomy'] ) && 'fb_product_set' === $_GET['taxonomy'] ) {
+			$is_product_sets_sync_enbaled = facebook_for_woocommerce()->get_rollout_switches()->is_switch_enabled(
+				RolloutSwitches::SWITCH_PRODUCT_SETS_SYNC_ENABLED
+			);
+			if ( $is_product_sets_sync_enbaled ) {
+				$fb_catalog_id = facebook_for_woocommerce()->get_integration()->get_product_catalog_id();
+
+				?>
+					<div class="notice notice-warning">
+						<p><b>Your categories now automatically sync as product sets on Facebook</b></p>
+						<p>Your categories in WooCommerce are now automatically synced to your catalog as product sets. To make changes to synced sets, you should <a href="edit-tags.php?taxonomy=product_cat" target="_blank">edit your categories on WooCommerce</a>. To see what has synced, <a href="https://business.facebook.com/commerce/catalogs/<?php echo esc_attr( $fb_catalog_id ); ?>/sets" target="_blank">go to sets in Commerce Manager</a>. Syncing categories helps customers discover more products and optimize ad performance.</p>
+						<p>The Product Sets tab will also be deprecated soon so you can no longer create and manage product sets within the plugin. Previously created sets will still remain, go to Commerce Manager to manage product sets going forward.</p>
+					</div>
+				<?php
+			}
+		}
 	}
 
 
+
 	/**
-	 * Add field to FB Product Set new term
+	 * Add field to Facebook Product Set new term
 	 *
 	 * @since 2.3.0
 	 */
 	public function category_field_on_new() {
 		?>
 		<div class="form-field">
-			<?php echo wp_kses( $this->get_field_label(), $this->allowed_html ); ?>
-			<?php echo wp_kses( $this->get_field(), $this->allowed_html ); ?>
+			<?php $this->get_field_label(); ?>
+			<?php $this->get_field(); ?>
 		</div>
 		<?php
 	}
 
 
 	/**
-	 * Add field to FB Product Set new term
+	 * Add field to Facebook Product Set new term
 	 *
 	 * @since 2.3.0
 	 *
 	 * @param WP_Term $term Term object.
 	 */
 	public function category_field_on_edit( $term ) {
-
 		// gets term id
 		$term_id = empty( $term->term_id ) ? '' : $term->term_id;
-
 		?>
 		<table class="form-table" role="presentation">
 			<tbody>
 				<tr class="form-field product-categories-wrap">
-					<th scope="row"><?php echo wp_kses( $this->get_field_label(), $this->allowed_html ); ?></th>
-					<td><?php echo wp_kses( $this->get_field( $term_id ), $this->allowed_html ); ?></td>
+					<th scope="row"><?php $this->get_field_label(); ?></th>
+					<td><?php $this->get_field( $term_id ); ?></td>
 				</tr>
 			</tbody>
 		</table>
-
 		<?php
 	}
 
@@ -123,19 +137,16 @@ class Product_Sets {
 	 * @param int $term_id Term ID.
 	 * @param int $tt_id Term taxonomy ID.
 	 */
-	public function save_custom_field( $term_id, $tt_id ) {
-
-		$wc_product_cats = empty( $_POST[ $this->categories_field ] ) ? '' : $_POST[ $this->categories_field ]; //phpcs:ignore
+	public function save_custom_field( $term_id, $tt_id ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
+		$wc_product_cats = empty( $_POST[ $this->categories_field ] ) ? '' : wc_clean( wp_unslash( $_POST[ $this->categories_field ] ) ); //phpcs:ignore
 		if ( ! empty( $wc_product_cats ) ) {
-
 			$wc_product_cats = array_map(
-				function( $item ) {
+				function ( $item ) {
 					return absint( $item );
 				},
 				$wc_product_cats
 			);
 		}
-
 		update_term_meta( $term_id, $this->categories_field, $wc_product_cats );
 	}
 
@@ -160,10 +171,13 @@ class Product_Sets {
 	 * @param int $term_id The Term ID that is editing.
 	 */
 	protected function get_field( $term_id = '' ) {
-
 		$saved_items  = get_term_meta( $term_id, $this->categories_field, true );
-		$product_cats = get_terms( 'product_cat', array( 'hide_empty' => 0 ) );
-
+		$product_cats = get_terms(
+			array(
+				'taxonomy'   => 'product_cat',
+				'hide_empty' => false,
+			)
+		);
 		?>
 		<div class="select2 updating-message"><p></p></div>
 		<select
@@ -178,8 +192,8 @@ class Product_Sets {
 			<?php $selected = ( is_array( $saved_items ) && in_array( $product_cat->term_id, $saved_items, true ) ) ? ' selected="selected"' : ''; ?>
 			<option value="<?php echo esc_attr( $product_cat->term_id ); ?>" <?php echo esc_attr( $selected ); ?>><?php echo esc_attr( $product_cat->name ); ?></option>
 		<?php endforeach; ?>
-		<select>
-		<p class="description"><?php echo esc_html__( 'Map FB Product Set to WC Product Categories', 'facebook-for-woocommerce' ); ?>.</p>
+		</select>
+		<p class="description"><?php echo esc_html__( 'Map Facebook Product Set to WC Product Categories', 'facebook-for-woocommerce' ); ?>.</p>
 		<?php
 	}
 }

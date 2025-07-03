@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,11 +8,12 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook\Admin;
+namespace WooCommerce\Facebook\Admin;
 
-use SkyVerge\WooCommerce\PluginFramework\v5_10_0 as Framework;
+use WooCommerce\Facebook\Framework\Helper;
+use WooCommerce\Facebook\Framework\Plugin\Exception as PluginException;
 
-defined( 'ABSPATH' ) or exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * The base settings screen object.
@@ -32,6 +32,9 @@ abstract class Abstract_Settings_Screen {
 
 	/** @var string screen description, for display */
 	protected $description;
+
+	/** @var string documentation URL for the more information link */
+	protected $documentation_url;
 
 
 	/**
@@ -68,9 +71,12 @@ abstract class Abstract_Settings_Screen {
 			<?php woocommerce_admin_fields( $settings ); ?>
 
 			<?php if ( $is_connected ) : ?>
-				<input type="hidden" name="screen_id" value="<?php echo esc_attr( $this->get_id() ); ?>">
-				<?php wp_nonce_field( 'wc_facebook_admin_save_' . $this->get_id() . '_settings' ); ?>
-				<?php submit_button( __( 'Save changes', 'facebook-for-woocommerce' ), 'primary', 'save_' . $this->get_id() . '_settings' ); ?>
+				<div class="actions">
+					<input type="hidden" name="screen_id" value="<?php echo esc_attr( $this->get_id() ); ?>">
+					<?php wp_nonce_field( 'wc_facebook_admin_save_' . $this->get_id() . '_settings' ); ?>
+					<?php submit_button( __( 'Save changes', 'facebook-for-woocommerce' ), 'primary', 'save_' . $this->get_id() . '_settings' ); ?>
+					<?php $this->maybe_render_learn_more_link( $this->get_label() ); ?>
+				</div>
 			<?php endif; ?>
 
 		</form>
@@ -78,16 +84,35 @@ abstract class Abstract_Settings_Screen {
 		<?php
 	}
 
+	/**
+	 * Renders the learn more link if the documentation URL is set.
+	 *
+	 * @param string $screen_label The screen label/title, translated.
+	 *
+	 * @since 3.3.0
+	 */
+	protected function maybe_render_learn_more_link( $screen_label ) {
+		if ( $this->documentation_url ) :
+			?>
+			<span class="learn-more-link"><a href="<?php echo esc_url( $this->documentation_url ); ?>" class="" target="_blank">
+				<?php
+				/*
+				 * Translators: %s Settings screen label/title, in lowercase.
+				 */
+				echo esc_html( sprintf( __( 'Learn more about %s', 'facebook-for-woocommerce' ), strtolower( $screen_label ) ) );
+				?>
+				</a></span>
+			<?php
+		endif;
+	}
+
 
 	/**
 	 * Saves the settings.
 	 *
 	 * @since 2.0.0
-	 *
-	 * @throws Framework\SV_WC_Plugin_Exception
 	 */
 	public function save() {
-
 		woocommerce_update_options( $this->get_settings() );
 	}
 
@@ -100,13 +125,14 @@ abstract class Abstract_Settings_Screen {
 	 * @return bool
 	 */
 	protected function is_current_screen_page() {
-
-		if ( Settings::PAGE_ID !== Framework\SV_WC_Helper::get_requested_value( 'page' ) ) {
+		if ( Settings::PAGE_ID !== Helper::get_requested_value( 'page' ) ) {
 			return false;
 		}
-
 		// assume we are on the Connection tab by default because the link under Marketing doesn't include the tab query arg
-		$tab = Framework\SV_WC_Helper::get_requested_value( 'tab', 'connection' );
+		$connection_handler      = facebook_for_woocommerce()->get_connection_handler();
+		$use_enhanced_onboarding = facebook_for_woocommerce()->use_enhanced_onboarding();
+		$default_tab             = $use_enhanced_onboarding ? 'shops' : ( $connection_handler->is_connected() ? 'advertise' : 'connection' );
+		$tab                     = Helper::get_requested_value( 'tab', $default_tab );
 
 		return ! empty( $tab ) && $tab === $this->get_id();
 	}
@@ -122,7 +148,7 @@ abstract class Abstract_Settings_Screen {
 	 *
 	 * @return array
 	 */
-	abstract public function get_settings();
+	abstract public function get_settings(): array;
 
 
 	/**
@@ -133,7 +159,6 @@ abstract class Abstract_Settings_Screen {
 	 * @return string
 	 */
 	public function get_disconnected_message() {
-
 		return '';
 	}
 
@@ -146,7 +171,6 @@ abstract class Abstract_Settings_Screen {
 	 * @return string
 	 */
 	public function get_id() {
-
 		return $this->id;
 	}
 
@@ -159,7 +183,6 @@ abstract class Abstract_Settings_Screen {
 	 * @return string
 	 */
 	public function get_label() {
-
 		/**
 		 * Filters the screen label.
 		 *
@@ -179,7 +202,6 @@ abstract class Abstract_Settings_Screen {
 	 * @return string
 	 */
 	public function get_title() {
-
 		/**
 		 * Filters the screen title.
 		 *
@@ -199,7 +221,6 @@ abstract class Abstract_Settings_Screen {
 	 * @return string
 	 */
 	public function get_description() {
-
 		/**
 		 * Filters the screen description.
 		 *
@@ -209,6 +230,4 @@ abstract class Abstract_Settings_Screen {
 		 */
 		return (string) apply_filters( 'wc_facebook_admin_settings_' . $this->get_id() . '_screen_description', $this->description, $this );
 	}
-
-
 }

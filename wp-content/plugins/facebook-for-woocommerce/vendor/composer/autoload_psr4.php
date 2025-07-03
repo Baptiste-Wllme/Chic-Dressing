@@ -6,7 +6,10 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
-    'SkyVerge\\WooCommerce\\Facebook\\' => array($baseDir . '/includes'),
+    'WooCommerce\\Facebook\\Feed\\' => array($baseDir . '/includes/Feed', $baseDir . '/includes/Feed/Promotions', $baseDir . '/includes/Feed/RatingsAndReviews', $baseDir . '/includes/Feed/ShippingProfiles', $baseDir . '/includes/Feed/NavigationMenu'),
+    'WooCommerce\\Facebook\\' => array($baseDir . '/includes'),
+    'Firebase\\JWT\\' => array($vendorDir . '/firebase/php-jwt/src'),
     'Composer\\Installers\\' => array($vendorDir . '/composer/installers/src/Composer/Installers'),
+    'Automattic\\WooCommerce\\Grow\\Tools\\CompatChecker\\v0_0_1\\' => array($vendorDir . '/woocommerce/grow/src'),
     'Automattic\\WooCommerce\\ActionSchedulerJobFramework\\' => array($vendorDir . '/woocommerce/action-scheduler-job-framework/src'),
 );

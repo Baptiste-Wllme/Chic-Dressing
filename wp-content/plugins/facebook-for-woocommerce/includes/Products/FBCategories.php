@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,7 +8,7 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook\Products;
+namespace WooCommerce\Facebook\Products;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -23,12 +22,24 @@ defined( 'ABSPATH' ) || exit;
 class FBCategories {
 
 	/**
-	 * This function ensures that everything is loaded before the we start using the data.
+	 * List of keys to exclude from general attribute processing.
+	 * These are special attributes handled separately by Facebook catalog.
+	 *
+	 * @var array $keys_to_exclude Associative array of attribute keys to exclude
+	 *                            Keys include: brand, color/colour, material, gender,
+	 *                            condition, size, age_group, and pattern
 	 */
-	private function ensure_data_is_loaded() {
-		// This makes the GoogleProductTaxonomy available.
-		require_once __DIR__ . '/GoogleProductTaxonomy.php';
-	}
+	private $keys_to_exclude = [
+		'brand'     => true,
+		'color'     => true,
+		'material'  => true,
+		'gender'    => true,
+		'condition' => true,
+		'size'      => true,
+		'colour'    => true,
+		'age_group' => true,
+		'pattern'   => true,
+	];
 
 	/**
 	 * Fetches the attribute from a category using attribute key.
@@ -72,9 +83,9 @@ class FBCategories {
 		// TODO: can perform more validations here.
 		switch ( $attribute['type'] ) {
 			case 'enum':
-				return in_array( $value, $attribute['enum_values'] );
+				return in_array( strtolower( $value ), $attribute['enum_values'], true );
 			case 'boolean':
-				return in_array( $value, array( 'yes', 'no' ) );
+				return in_array( $value, array( 'yes', 'no' ), true );
 			default:
 				return true;
 		}
@@ -88,7 +99,6 @@ class FBCategories {
 	 * @return null|array Null if category was not found or the category array.
 	 */
 	public function get_category( $category_id ) {
-		$this->ensure_data_is_loaded();
 		if ( $this->is_category( $category_id ) ) {
 			return GoogleProductTaxonomy::TAXONOMY[ $category_id ];
 		} else {
@@ -138,7 +148,14 @@ class FBCategories {
 		$return_attributes = array();
 		foreach ( $category['attributes'] as $attribute_hash ) {
 			// Get attribute array from the stored hash version
-			$return_attributes[] = $this->get_attribute_field_by_hash( $attribute_hash );
+			$attribute = $this->get_attribute_field_by_hash( $attribute_hash );
+
+			// Skip if attribute is invalid or its key is in the exclude list
+			if ( ! is_array( $attribute ) || empty( $attribute['key'] ) || isset( $this->keys_to_exclude[ $attribute['key'] ] ) ) {
+				continue;
+			}
+
+			$return_attributes[] = $attribute;
 		}
 
 		return $return_attributes;
@@ -152,7 +169,6 @@ class FBCategories {
 	 * @return null|array Null if no attributes were found or category is invalid, otherwise array of attributes.
 	 */
 	public function get_attributes_with_fallback_to_parent_category( $category_id ) {
-		$this->ensure_data_is_loaded();
 		if ( ! $this->is_category( $category_id ) ) {
 			return null;
 		}
@@ -189,7 +205,6 @@ class FBCategories {
 	 * @return boolean Is the id a valid category id.
 	 */
 	public function is_category( $category_id ) {
-		$this->ensure_data_is_loaded();
 		return isset( GoogleProductTaxonomy::TAXONOMY[ $category_id ] );
 	}
 
@@ -199,7 +214,6 @@ class FBCategories {
 	 * @return array All categories data.
 	 */
 	public function get_categories() {
-		$this->ensure_data_is_loaded();
 		return GoogleProductTaxonomy::TAXONOMY;
 	}
 
@@ -227,7 +241,6 @@ class FBCategories {
 	 */
 	protected function get_raw_attributes_data() {
 		static $data = null;
-
 		if ( null === $data ) {
 			$contents = file_get_contents( facebook_for_woocommerce()->get_plugin_path() . '/data/google_category_to_attribute_mapping.json' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 			if ( $contents ) {
@@ -237,7 +250,6 @@ class FBCategories {
 				facebook_for_woocommerce()->log( 'Error reading category attributes JSON data.' );
 			}
 		}
-
 		return $data;
 	}
 
@@ -261,36 +273,4 @@ class FBCategories {
 
 		return $data;
 	}
-
-	/**
-	 * @deprecated in version 2.4.0. Use `::get_attributes_with_fallback_to_parent_category()` instead.
-	 *
-	 * @see \SkyVerge\WooCommerce\Facebook\Products\FBCategories::get_attributes_with_fallback_to_parent_category()
-	 *
-	 * Get attributes for the category.
-	 *
-	 * @param string $category_id Id of the category for which we want to fetch attributes.
-	 *
-	 * @return null|array
-	 */
-	public function get_category_with_attrs( $category_id ) {
-		wc_deprecated_function( __METHOD__, '2.4.0', __CLASS__ . '::get_attributes_with_fallback_to_parent_category' );
-
-		$attributes = $this->get_attributes_with_fallback_to_parent_category( $category_id );
-		if ( ! is_array( $attributes ) ) {
-			return null;
-		}
-
-		// Use legacy return format for backwards compatibility with 3rd party code
-		$all_attributes_data = $this->get_raw_attributes_data();
-		if ( ! isset( $all_attributes_data[ $category_id ] ) ) {
-			return null;
-		}
-
-		$category               = $all_attributes_data[ $category_id ];
-		$category['attributes'] = $attributes;
-
-		return $category;
-	}
-
 }

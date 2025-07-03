@@ -20,6 +20,7 @@ class Nginx_Helper_Activator {
 
 	/**
 	 * Create log directory. Add capability of nginx helper.
+	 * Schedule event to check log file size daily.
 	 *
 	 * @since    2.0.0
 	 *
@@ -54,6 +55,12 @@ class Nginx_Helper_Activator {
 
 		$role->add_cap( 'Nginx Helper | Config' );
 		$role->add_cap( 'Nginx Helper | Purge cache' );
+
+		wp_schedule_event( time(), 'daily', 'rt_wp_nginx_helper_check_log_file_size_daily' );
+		
+		if( method_exists( $nginx_helper_admin, 'store_default_options' ) ) {
+			$nginx_helper_admin->store_default_options();
+		}
 
 	}
 

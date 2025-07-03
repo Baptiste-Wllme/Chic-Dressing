@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,12 +8,11 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook\Utilities;
+namespace WooCommerce\Facebook\Utilities;
 
-defined( 'ABSPATH' ) or exit;
+defined( 'ABSPATH' ) || exit;
 
-use SkyVerge\WooCommerce\PluginFramework\v5_10_0 as Framework;
-
+use WooCommerce\Facebook\Framework\Utilities\BackgroundJobHandler;
 
 /**
  * Background job handler to remove duplicate fb_visibility entries from the postmeta table.
@@ -23,7 +21,7 @@ use SkyVerge\WooCommerce\PluginFramework\v5_10_0 as Framework;
  *
  * @since 2.0.3
  */
-class Background_Remove_Duplicate_Visibility_Meta extends Framework\SV_WP_Background_Job_Handler {
+class Background_Remove_Duplicate_Visibility_Meta extends BackgroundJobHandler {
 
 
 	/**
@@ -114,7 +112,7 @@ class Background_Remove_Duplicate_Visibility_Meta extends Framework\SV_WP_Backgr
 			) AS duplicate_entries
 		";
 
-		return (int) $wpdb->get_var( $sql );
+		return (int) $wpdb->get_var( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 	}
 
 
@@ -141,6 +139,7 @@ class Background_Remove_Duplicate_Visibility_Meta extends Framework\SV_WP_Backgr
 
 			$sql = "DELETE FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = 'fb_visibility' AND meta_id != %d";
 
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 			if ( false === $wpdb->query( $wpdb->prepare( $sql, $result->post_id, $result->last_meta_id ) ) ) {
 
 				facebook_for_woocommerce()->log(
@@ -153,7 +152,7 @@ class Background_Remove_Duplicate_Visibility_Meta extends Framework\SV_WP_Backgr
 				continue;
 			}
 
-			$products_updated++;
+			++$products_updated;
 		}
 
 		return $products_updated;
@@ -180,7 +179,7 @@ class Background_Remove_Duplicate_Visibility_Meta extends Framework\SV_WP_Backgr
 			HAVING entries > 1
 		";
 
-		return $wpdb->get_results( $sql );
+		return $wpdb->get_results( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 	}
 
 
@@ -188,10 +187,10 @@ class Background_Remove_Duplicate_Visibility_Meta extends Framework\SV_WP_Backgr
 	 * No-op
 	 *
 	 * @since 2.0.3
+	 * @param mixed  $item The item to process.
+	 * @param object $job  The job object.
 	 */
 	protected function process_item( $item, $job ) {
 		// void
 	}
-
-
 }

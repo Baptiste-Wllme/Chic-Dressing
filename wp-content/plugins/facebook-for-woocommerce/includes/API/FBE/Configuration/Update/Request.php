@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,11 +8,11 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook\API\FBE\Configuration\Update;
+namespace WooCommerce\Facebook\API\FBE\Configuration\Update;
 
-defined( 'ABSPATH' ) or exit;
+defined( 'ABSPATH' ) || exit;
 
-use SkyVerge\WooCommerce\Facebook\API\FBE\Configuration;
+use WooCommerce\Facebook\API\FBE\Configuration;
 
 /**
  * FBE Configuration update request object.
@@ -31,30 +30,25 @@ class Request extends Configuration\Request {
 	 * @param string $external_business_id external business ID
 	 */
 	public function __construct( $external_business_id ) {
-
 		parent::__construct( $external_business_id, 'POST' );
-
 		// include the business ID in the request body
 		$this->data['fbe_external_business_id'] = $external_business_id;
 	}
 
-
 	/**
-	 * Sets the messenger configuration.
+	 * Sets the external client metadata for logging
 	 *
-	 * Only the enabled and domains values are able to accept updates right now.
+	 * @since 3.4.4
 	 *
-	 * @since 2.0.0
+	 * @param array $metadata map of metadata to include. Example: array ('version_id' => '0.0.0', 'is_multisite' => True)
 	 *
-	 * @param Configuration\Messenger $configuration messenger configuration object
+	 * @return void
 	 */
-	public function set_messenger_configuration( Configuration\Messenger $configuration ) {
-
-		$this->data['messenger_chat'] = array(
-			'enabled' => $configuration->is_enabled(),
-			'domains' => $configuration->get_domains(),
+	public function set_external_client_metadata( array $metadata ) {
+		$this->data['business_config'] = array(
+			'external_client' => $metadata,
 		);
+
+		is_multisite();
 	}
-
-
 }

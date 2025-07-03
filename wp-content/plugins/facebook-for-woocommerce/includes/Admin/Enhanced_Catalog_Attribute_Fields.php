@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,11 +8,11 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook\Admin;
+namespace WooCommerce\Facebook\Admin;
 
-defined( 'ABSPATH' ) or exit;
+defined( 'ABSPATH' ) || exit;
 
-use SkyVerge\WooCommerce\Facebook\Products as Products_Handler;
+use WooCommerce\Facebook\Products as Products_Handler;
 
 /**
  * Enhanced Catalog attribute fields.
@@ -28,11 +27,49 @@ class Enhanced_Catalog_Attribute_Fields {
 	const PAGE_TYPE_ADD_CATEGORY  = 'add_category';
 	const PAGE_TYPE_EDIT_PRODUCT  = 'edit_product';
 
-	public function __construct( $page_type, \WP_Term $term = null, \WC_Product $product = null ) {
+	/**
+	 * @var string Facebook page type.
+	 */
+	private $page_type;
+
+	/**
+	 * @var \WP_Term
+	 */
+	private $term;
+
+	/**
+	 * @var \WC_Product
+	 */
+	private $product;
+
+	/**
+	 * @var \WooCommerce\Facebook\Products\FBCategories
+	 */
+	private $category_handler;
+
+	public function __construct( $page_type, ?\WP_Term $term = null, ?\WC_Product $product = null ) {
 		$this->page_type        = $page_type;
 		$this->term             = $term;
 		$this->product          = $product;
 		$this->category_handler = facebook_for_woocommerce()->get_facebook_category_handler();
+	}
+
+	/**
+	 * __get method for backward compatibility.
+	 *
+	 * @param string $key property name
+	 * @return mixed
+	 * @since 3.0.32
+	 */
+	public function __get( $key ) {
+		// Add warning for private properties.
+		if ( in_array( $key, array( 'page_type', 'term', 'product', 'category_handler' ), true ) ) {
+			/* translators: %s property name. */
+			_doing_it_wrong( __FUNCTION__, sprintf( esc_html__( 'The %s property is private and should not be accessed outside its class.', 'facebook-for-woocommerce' ), esc_html( $key ) ), '3.0.32' );
+			return $this->$key;
+		}
+
+		return null;
 	}
 
 	public static function render_hidden_input_can_show_attributes() {
@@ -44,28 +81,29 @@ class Enhanced_Catalog_Attribute_Fields {
 	}
 
 	private function extract_attribute( &$attributes, $key ) {
-		$index     = array_search( $key, array_column( $attributes, 'key' ) );
+		$index     = array_search( $key, array_column( $attributes, 'key' ), true );
 		$extracted = false === $index ? array() : array_splice( $attributes, $index, 1 );
 		return empty( $extracted ) ? null : array_shift( $extracted );
 	}
-
 	public function render( $category_id ) {
-		$all_attributes             = $this->category_handler->get_attributes_with_fallback_to_parent_category( $category_id );
+		$all_attributes = (array) $this->category_handler->get_attributes_with_fallback_to_parent_category( $category_id );
+
 		$all_attributes_with_values = array_map(
-			function( $attribute ) use ( $category_id ) {
+			function ( $attribute ) use ( $category_id ) {
 				return array_merge( $attribute, array( 'value' => $this->get_value( $attribute['key'], $category_id ) ) );
 			},
 			$all_attributes
 		);
-		$recommended_attributes     = array_filter(
+
+		$recommended_attributes = array_filter(
 			$all_attributes_with_values,
-			function( $attr ) {
+			function ( $attr ) {
 				return $attr['recommended'];
 			}
 		);
-		$optional_attributes        = array_filter(
+		$optional_attributes    = array_filter(
 			$all_attributes_with_values,
-			function( $attr ) {
+			function ( $attr ) {
 				return ! $attr['recommended'];
 			}
 		);
@@ -80,19 +118,49 @@ class Enhanced_Catalog_Attribute_Fields {
 					$this->extract_attribute( $optional_attributes, 'size' ),
 					$this->extract_attribute( $optional_attributes, 'gender' ),
 				),
-				function( $attr ) {
+				function ( $attr ) {
 					return ! is_null( $attr );
 				}
 			);
 		}
 
-		foreach ( $recommended_attributes as $attribute ) {
-			$this->render_attribute( $attribute );
+		/**
+		 * Attributes should be ordered by priority in this order: Length, Width, Height, Depth, Other measurement attributes, others.
+		 */
+		$priorities = array(
+			'product_length' => 140,
+			'product_width'  => 130,
+			'product_height' => 120,
+			'product_depth'  => 110,
+			'default'        => 100,
+		);
+
+		$priority = array(); // Initialize priority array.
+		foreach ( $recommended_attributes as $key => $attribute ) {
+			$recommended_attributes[ $key ]['priority'] = 5; // Assign 5 initially to each attribute
+			if ( 'measurement' === $attribute['type'] ) {
+				$recommended_attributes[ $key ]['priority'] = isset( $priorities[ $attribute['key'] ] ) ? $priorities[ $attribute['key'] ] : $priorities['default'];
+			}
+			$priority[ $key ] = $recommended_attributes[ $key ]['priority'];
 		}
 
+		$should_render_checkbox = ! empty( $recommended_attributes );
+
+		// Only sort if we have recommended attributes.
+		if ( ! empty( $priority ) ) {
+			array_multisort( $priority, SORT_DESC, $recommended_attributes );
+		}
 		$selector_value      = $this->get_value( self::OPTIONAL_SELECTOR_KEY, $category_id );
 		$is_showing_optional = 'on' === $selector_value;
-		$this->render_selector_checkbox( $is_showing_optional );
+
+		// Only show the selector if we have natural recommendations
+		if ( $should_render_checkbox ) {
+			$this->render_selector_checkbox( $is_showing_optional );
+		}
+
+		foreach ( $recommended_attributes as $attribute ) {
+			$this->render_attribute( $attribute, true, $is_showing_optional );
+		}
 
 		foreach ( $optional_attributes as $attribute ) {
 			$this->render_attribute( $attribute, true, $is_showing_optional );
@@ -101,7 +169,7 @@ class Enhanced_Catalog_Attribute_Fields {
 
 	private function render_selector_checkbox( $is_showing_optional ) {
 		$selector_id    = self::FIELD_ENHANCED_CATALOG_ATTRIBUTE_PREFIX . self::OPTIONAL_SELECTOR_KEY;
-		$selector_label = __( 'Show advanced options', 'facebook-for-woocommerce' );
+		$selector_label = __( 'Show more attributes', 'facebook-for-woocommerce' );
 		$checked_attr   = $is_showing_optional ? 'checked="checked"' : '';
 
 		if ( self::PAGE_TYPE_EDIT_PRODUCT === $this->page_type ) {
@@ -132,7 +200,7 @@ class Enhanced_Catalog_Attribute_Fields {
 		if ( ! is_null( $this->product ) ) {
 			$value = Products_Handler::get_enhanced_catalog_attribute( $attribute_key, $this->product );
 		} elseif ( ! is_null( $this->term ) ) {
-			$meta_key = \SkyVerge\WooCommerce\Facebook\Products::ENHANCED_CATALOG_ATTRIBUTES_META_KEY_PREFIX . $attribute_key;
+			$meta_key = \WooCommerce\Facebook\Products::ENHANCED_CATALOG_ATTRIBUTES_META_KEY_PREFIX . $attribute_key;
 			$value    = get_term_meta( $this->term->term_id, $meta_key, true );
 		}
 
@@ -157,7 +225,7 @@ class Enhanced_Catalog_Attribute_Fields {
 				$classes[] = 'hidden';
 			}
 		}
-			// style="display: <?php echo $optional && ! $is_showing_optional ? 'none' : 'table-row'; ? >"
+
 		if ( self::PAGE_TYPE_EDIT_PRODUCT === $this->page_type ) {
 			?>
 			<p
@@ -184,7 +252,7 @@ class Enhanced_Catalog_Attribute_Fields {
 	private function render_label( $attr_id, $attribute ) {
 		$label = ucwords( str_replace( '_', ' ', $attribute['key'] ) );
 		?>
-		<label for="<?php echo $attr_id; ?>">
+		<label for="<?php echo esc_attr( $attr_id ); ?>">
 			<?php echo esc_html( $label ); ?>
 			<span class="woocommerce-help-tip" data-tip="<?php echo esc_attr( $attribute['description'] ); ?>"></span>
 		</label>
@@ -208,7 +276,6 @@ class Enhanced_Catalog_Attribute_Fields {
 				// string
 				$this->render_text_field( $attr_id, $attribute, $placeholder );
 		}
-
 	}
 
 	private function render_select_field( $attr_id, $attribute ) {

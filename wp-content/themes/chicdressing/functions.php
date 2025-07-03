@@ -7,7 +7,10 @@ function chicdressing_enqueue_styles() {
 
 add_filter( 'big_image_size_threshold', '__return_false' );
 
-
+function remove_parent_google_fonts() {
+    wp_dequeue_style('kalam'); 
+}
+add_action('wp_enqueue_scripts', 'remove_parent_google_fonts', 20);
 
 
  

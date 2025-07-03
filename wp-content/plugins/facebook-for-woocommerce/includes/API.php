@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,35 +8,37 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook;
+namespace WooCommerce\Facebook;
 
-defined( 'ABSPATH' ) or exit;
+defined( 'ABSPATH' ) || exit;
 
-use SkyVerge\WooCommerce\Facebook\API\Orders\Order;
-use SkyVerge\WooCommerce\Facebook\API\Request;
-use SkyVerge\WooCommerce\Facebook\API\Response;
-use SkyVerge\WooCommerce\Facebook\Events\Event;
-use SkyVerge\WooCommerce\PluginFramework\v5_10_0 as Framework;
+use WooCommerce\Facebook\API\Exceptions\Request_Limit_Reached;
+use WooCommerce\Facebook\API\Request;
+use WooCommerce\Facebook\API\Response;
+use WooCommerce\Facebook\Events\Event;
+use WooCommerce\Facebook\Framework\Api\Base;
+use WooCommerce\Facebook\Framework\Api\Exception as ApiException;
 
 /**
  * API handler.
  *
  * @since 2.0.0
  *
- * @method API\Request get_request()
+ * @method Framework\Api\Request get_request()
  */
-class API extends Framework\SV_WC_API_Base {
-
+class API extends Base {
 
 	use API\Traits\Rate_Limited_API;
 
+	public const GRAPH_API_URL = 'https://graph.facebook.com/';
+
+	public const API_VERSION = 'v21.0';
 
 	/** @var string URI used for the request */
-	protected $request_uri = \WC_Facebookcommerce_Graph_API::GRAPH_API_URL . \WC_Facebookcommerce_Graph_API::API_VERSION;
+	protected $request_uri = self::GRAPH_API_URL . self::API_VERSION;
 
 	/** @var string the configured access token */
 	protected $access_token;
-
 
 	/**
 	 * Constructor.
@@ -47,13 +48,10 @@ class API extends Framework\SV_WC_API_Base {
 	 * @param string $access_token access token to use for API requests
 	 */
 	public function __construct( $access_token ) {
-
-		$this->access_token = $access_token;
-
+		$this->access_token    = $access_token;
 		$this->request_headers = array(
 			'Authorization' => "Bearer {$access_token}",
 		);
-
 		$this->set_request_content_type_header( 'application/json' );
 		$this->set_request_accept_header( 'application/json' );
 	}
@@ -67,7 +65,6 @@ class API extends Framework\SV_WC_API_Base {
 	 * @return string
 	 */
 	public function get_access_token() {
-
 		return $this->access_token;
 	}
 
@@ -80,7 +77,6 @@ class API extends Framework\SV_WC_API_Base {
 	 * @param string $access_token access token to set
 	 */
 	public function set_access_token( $access_token ) {
-
 		$this->access_token = $access_token;
 	}
 
@@ -88,30 +84,21 @@ class API extends Framework\SV_WC_API_Base {
 	/**
 	 * Performs an API request.
 	 *
-	 * @since 2.1.0
-	 *
 	 * @param API\Request $request request object
 	 * @return API\Response
-	 * @throws API\Exceptions\Request_Limit_Reached|Framework\SV_WC_API_Exception
+	 * @throws API\Exceptions\Request_Limit_Reached|ApiException In case of a general API error or rate limit error.
 	 */
-	public function perform_request( $request ) {
-
+	protected function perform_request( $request ): API\Response {
 		$rate_limit_id   = $request::get_rate_limit_id();
 		$delay_timestamp = $this->get_rate_limit_delay( $rate_limit_id );
-
 		// if there is a delayed timestamp in the future, throw an exception
 		if ( $delay_timestamp >= time() ) {
-
 			$this->handle_throttled_request( $rate_limit_id, $delay_timestamp );
-
 		} else {
-
 			$this->set_rate_limit_delay( $rate_limit_id, 0 );
 		}
-
 		return parent::perform_request( $request );
 	}
-
 
 	/**
 	 * Validates a response after it has been parsed and instantiated.
@@ -120,19 +107,17 @@ class API extends Framework\SV_WC_API_Base {
 	 *
 	 * @since 2.0.0
 	 *
-	 * @throws Framework\SV_WC_API_Exception
+	 * @throws ApiException In case of an invalid token error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of a rate limit error.
 	 */
 	protected function do_post_parse_response_validation() {
-
 		/** @var API\Response $response */
 		$response = $this->get_response();
 		$request  = $this->get_request();
-
 		if ( $response && $response->has_api_error() ) {
-
-			$code    = $response->get_api_error_code();
+			$code = $response->get_api_error_code();
+			// phpcs:ignore Universal.Operators.DisallowShortTernary.Found
 			$message = sprintf( '%s: %s', $response->get_api_error_type(), $response->get_user_error_message() ?: $response->get_api_error_message() );
-
 			/**
 			 * Graph API
 			 *
@@ -150,20 +135,13 @@ class API extends Framework\SV_WC_API_Base {
 			 * @link https://developers.facebook.com/docs/marketing-api/reference/product-catalog/batch/#validation-rules
 			 */
 			if ( in_array( $code, array( 4, 17, 32, 613, 80001, 80004 ), true ) ) {
-
 				$delay_in_seconds = $this->calculate_rate_limit_delay( $response, $this->get_response_headers() );
-
 				if ( $delay_in_seconds > 0 ) {
-
 					$rate_limit_id = $request::get_rate_limit_id();
 					$timestamp     = time() + $delay_in_seconds;
-
 					$this->set_rate_limit_delay( $rate_limit_id, $timestamp );
-
 					$this->handle_throttled_request( $rate_limit_id, $timestamp );
-
 				} else {
-
 					throw new API\Exceptions\Request_Limit_Reached( $message, $code );
 				}
 			}
@@ -179,20 +157,14 @@ class API extends Framework\SV_WC_API_Base {
 				// this was an unrelated error, so the OAuth connection may still be valid
 				delete_transient( 'wc_facebook_connection_invalid' );
 			}
-
 			// if the code indicates a retry and we've not hit the retry limit, perform the request again
 			if ( in_array( $code, $request->get_retry_codes(), false ) && $request->get_retry_count() < $request->get_retry_limit() ) {
-
 				$request->mark_retry();
-
 				$this->response = $this->perform_request( $request );
-
 				return;
 			}
-
-			throw new Framework\SV_WC_API_Exception( $message, $code );
+			throw new ApiException( $message, $code );
 		}
-
 		// if we get this far we're connected, so delete any invalid connection flag
 		delete_transient( 'wc_facebook_connection_invalid' );
 	}
@@ -205,21 +177,16 @@ class API extends Framework\SV_WC_API_Base {
 	 *
 	 * @param string $rate_limit_id ID for the API request
 	 * @param int    $timestamp timestamp until the delay is over
-	 * @throws API\Exceptions\Request_Limit_Reached
+	 * @throws API\Exceptions\Request_Limit_Reached In case of a rate limit error.
 	 */
 	private function handle_throttled_request( $rate_limit_id, $timestamp ) {
-
 		if ( time() > $timestamp ) {
 			return;
 		}
-
 		$exception = new API\Exceptions\Request_Limit_Reached( "{$rate_limit_id} requests are currently throttled.", 401 );
-
 		$date_time = new \DateTime();
 		$date_time->setTimestamp( $timestamp );
-
 		$exception->set_throttle_end( $date_time );
-
 		throw $exception;
 	}
 
@@ -227,18 +194,13 @@ class API extends Framework\SV_WC_API_Base {
 	/**
 	 * Gets the FBE installation IDs.
 	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $external_business_id external business ID
-	 * @return API\FBE\Installation\Read\Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $external_business_id External business id.
+	 * @return API\Response|API\FBE\Installation\Read\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function get_installation_ids( $external_business_id ) {
-
+	public function get_installation_ids( string $external_business_id ): API\FBE\Installation\Read\Response {
 		$request = new API\FBE\Installation\Read\Request( $external_business_id );
-
 		$this->set_response_handler( API\FBE\Installation\Read\Response::class );
-
 		return $this->perform_request( $request );
 	}
 
@@ -249,15 +211,12 @@ class API extends Framework\SV_WC_API_Base {
 	 * @since 2.0.0
 	 *
 	 * @param string $page_id page ID
-	 * @return API\Pages\Read\Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @return API\Response|API\Pages\Read\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function get_page( $page_id ) {
-
+	public function get_page( $page_id ): API\Pages\Read\Response {
 		$request = new API\Pages\Read\Request( $page_id );
-
 		$this->set_response_handler( API\Pages\Read\Response::class );
-
 		return $this->perform_request( $request );
 	}
 
@@ -265,18 +224,13 @@ class API extends Framework\SV_WC_API_Base {
 	/**
 	 * Gets a Catalog object from Facebook.
 	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $catalog_id catalog ID
-	 * @return API\Catalog\Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $catalog_id Facebook catalog id.
+	 * @return API\Response|API\Catalog\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function get_catalog( $catalog_id ) {
-
+	public function get_catalog( string $catalog_id ): API\Catalog\Response {
 		$request = new API\Catalog\Request( $catalog_id );
-
 		$this->set_response_handler( API\Catalog\Response::class );
-
 		return $this->perform_request( $request );
 	}
 
@@ -284,40 +238,29 @@ class API extends Framework\SV_WC_API_Base {
 	/**
 	 * Gets a user object from Facebook.
 	 *
-	 * @since 2.0.0
-	 *
 	 * @param string $user_id user ID. Defaults to the currently authenticated user
-	 * @return API\User\Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @return API\Response|API\User\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function get_user( $user_id = '' ) {
-
+	public function get_user( string $user_id = '' ): API\User\Response {
 		$request = new API\User\Request( $user_id );
-
 		$this->set_response_handler( API\User\Response::class );
-
 		return $this->perform_request( $request );
 	}
 
 
 	/**
-	 * Delete's a user's API permission.
+	 * Deletes FBE/MBE connection API.
 	 *
 	 * This is their form of "revoke".
 	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $user_id user ID. Defaults to the currently authenticated user
-	 * @param string $permission permission to delete
-	 * @return API\User\Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $external_business_id external business ID
+	 * @return API\Response|API\FBE\Installation\Delete\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function delete_user_permission( $user_id, $permission ) {
-
-		$request = new API\User\Permissions\Delete\Request( $user_id, $permission );
-
-		$this->set_response_handler( API\User\Response::class );
-
+	public function delete_mbe_connection( string $external_business_id ): API\FBE\Installation\Delete\Response {
+		$request = new API\FBE\Installation\Delete\Request( $external_business_id );
+		$this->set_response_handler( API\FBE\Installation\Delete\Response::class );
 		return $this->perform_request( $request );
 	}
 
@@ -325,40 +268,73 @@ class API extends Framework\SV_WC_API_Base {
 	/**
 	 * Gets the business configuration.
 	 *
-	 * @since 2.0.0
-	 *
 	 * @param string $external_business_id external business ID
-	 * @return API\FBE\Configuration\Read\Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $access_token Optional access token to use for this request. If not provided, will use the instance token.
+	 * @param array  $fields Optional. Fields to request from the API. Default empty array returns all fields.
+	 * @return API\Response|API\FBE\Configuration\Read\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function get_business_configuration( $external_business_id ) {
-
+	public function get_business_configuration( $external_business_id, $access_token = '', $fields = [] ) {
 		$request = new API\FBE\Configuration\Request( $external_business_id, 'GET' );
-
+		$params  = [];
+		// Use provided access token or fall back to the instance token
+		if ( ! empty( $access_token ) ) {
+			$params['access_token'] = $access_token;
+		}
+		// Add fields parameter if specified
+		if ( ! empty( $fields ) ) {
+			$params['fields'] = is_array( $fields ) ? implode( ',', $fields ) : $fields;
+		}
+		// Set parameters if we have any
+		if ( ! empty( $params ) ) {
+			$request->set_params( $params );
+		}
 		$this->set_response_handler( API\FBE\Configuration\Read\Response::class );
-
 		return $this->perform_request( $request );
 	}
 
+	/**
+	 * Gets rollout switches
+	 *
+	 * @param string $external_business_id
+	 * @return API\FBE\RolloutSwitches\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
+	 */
+	public function get_rollout_switches( string $external_business_id ) {
+		if ( ! $this->get_access_token() ) {
+			return null;
+		}
+
+		$request = new API\FBE\RolloutSwitches\Request( $external_business_id );
+		$request->set_params(
+			array(
+				'access_token'             => $this->get_access_token(),
+				'fbe_external_business_id' => $external_business_id,
+			)
+		);
+		$this->set_response_handler( API\FBE\RolloutSwitches\Response::class );
+		return $this->perform_request( $request );
+	}
 
 	/**
-	 * Updates the messenger configuration.
+	 * Updates the plugin version configuration.
 	 *
-	 * @since 2.0.0
-	 *
-	 * @param string                          $external_business_id external business ID
-	 * @param API\FBE\Configuration\Messenger $configuration messenger configuration
-	 * @return Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $external_business_id external business ID
+	 * @param bool   $is_opted_out The plugin version.
+	 * @param string $plugin_version The plugin version.
+	 * @return Response|API\FBE\Configuration\Update\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function update_messenger_configuration( $external_business_id, API\FBE\Configuration\Messenger $configuration ) {
-
+	public function update_plugin_version_configuration( string $external_business_id, bool $is_opted_out, string $plugin_version ): API\FBE\Configuration\Update\Response {
 		$request = new API\FBE\Configuration\Update\Request( $external_business_id );
-
-		$request->set_messenger_configuration( $configuration );
-
-		$this->set_response_handler( API\Response::class );
-
+		$request->set_external_client_metadata(
+			array(
+				'version_id'                    => $plugin_version,
+				'is_multisite'                  => is_multisite(),
+				'is_woo_all_products_opted_out' => $is_opted_out,
+			)
+		);
+		$this->set_response_handler( API\FBE\Configuration\Update\Response::class );
 		return $this->perform_request( $request );
 	}
 
@@ -368,50 +344,29 @@ class API extends Framework\SV_WC_API_Base {
 	 *
 	 * @see Sync::create_or_update_products()
 	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $catalog_id catalog ID
-	 * @param array  $requests array of prefixed product IDs to create, update or remove
-	 * @param bool   $allow_upsert whether to allow updates to insert new items
-	 * @return \SkyVerge\WooCommerce\Facebook\API\Catalog\Send_Item_Updates\Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $facebook_product_catalog_id Facebook Product Catalog ID.
+	 * @param array  $requests array of prefixed product IDs to create, update or remove.
+	 * @return API\Response|API\ProductCatalog\ItemsBatch\Create\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function send_item_updates( $catalog_id, $requests, $allow_upsert ) {
-
-		$request = new \SkyVerge\WooCommerce\Facebook\API\Catalog\Send_Item_Updates\Request( $catalog_id );
-
-		$request->set_requests( $requests );
-		$request->set_allow_upsert( $allow_upsert );
-
-		$this->set_response_handler( \SkyVerge\WooCommerce\Facebook\API\Catalog\Send_Item_Updates\Response::class );
-
+	public function send_item_updates( string $facebook_product_catalog_id, array $requests ) {
+		$request = new API\ProductCatalog\ItemsBatch\Create\Request( $facebook_product_catalog_id, $requests );
+		$this->set_response_handler( API\ProductCatalog\ItemsBatch\Create\Response::class );
 		return $this->perform_request( $request );
 	}
 
 
 	/**
-	 * Creates a Product Group object.
+	 * Creates Facebook Product Group.
 	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $catalog_id catalog ID
-	 * @param array  $data product group data
-	 * @return Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $product_catalog_id Facebook Product Catalog ID.
+	 * @param array  $data Facebook Product Group Data.
+	 * @return API\Response|API\ProductCatalog\ProductGroups\Create\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function create_product_group( $catalog_id, $data ) {
-
-		$request = $this->get_new_request(
-			array(
-				'path'   => "/{$catalog_id}/product_groups",
-				'method' => 'POST',
-			)
-		);
-
-		$request->set_data( $data );
-
-		$this->set_response_handler( Response::class );
-
+	public function create_product_group( string $product_catalog_id, array $data ): API\ProductCatalog\ProductGroups\Create\Response {
+		$request = new API\ProductCatalog\ProductGroups\Create\Request( $product_catalog_id, $data );
+		$this->set_response_handler( API\ProductCatalog\ProductGroups\Create\Response::class );
 		return $this->perform_request( $request );
 	}
 
@@ -419,50 +374,14 @@ class API extends Framework\SV_WC_API_Base {
 	/**
 	 * Updates the default product item and the available variation attributes of a product group.
 	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $product_group_id product group ID
-	 * @param array  $data product group data
-	 * @return Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $product_group_id Facebook Product Group ID.
+	 * @param array  $data Facebook Product Group Data.
+	 * @return API\ProductCatalog\ProductGroups\Update\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function update_product_group( $product_group_id, $data ) {
-
-		$request = $this->get_new_request(
-			array(
-				'path'   => "/{$product_group_id}",
-				'method' => 'POST',
-			)
-		);
-
-		$request->set_data( $data );
-
-		$this->set_response_handler( Response::class );
-
-		return $this->perform_request( $request );
-	}
-
-
-	/**
-	 * Deletes a Product Group object.
-	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $product_group_id
-	 * @return Response
-	 * @throws Framework\SV_WC_API_Exception
-	 */
-	public function delete_product_group( $product_group_id ) {
-
-		$request = $this->get_new_request(
-			array(
-				'path'   => "/{$product_group_id}",
-				'method' => 'DELETE',
-			)
-		);
-
-		$this->set_response_handler( Response::class );
-
+	public function update_product_group( string $product_group_id, array $data ): API\ProductCatalog\ProductGroups\Update\Response {
+		$request = new API\ProductCatalog\ProductGroups\Update\Request( $product_group_id, $data );
+		$this->set_response_handler( API\ProductCatalog\ProductGroups\Update\Response::class );
 		return $this->perform_request( $request );
 	}
 
@@ -470,66 +389,31 @@ class API extends Framework\SV_WC_API_Base {
 	/**
 	 * Gets a list of Product Items in the given Product Group.
 	 *
-	 * @since 2.0.0
-	 *
 	 * @param string $product_group_id product group ID
 	 * @param int    $limit max number of results returned per page of data
-	 * @return API\Catalog\Product_Group\Products\Read\Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @return API\Response|API\ProductCatalog\ProductGroups\Read\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function get_product_group_products( $product_group_id, $limit = 1000 ) {
-
-		$request = new API\Catalog\Product_Group\Products\Read\Request( $product_group_id, $limit );
-
-		$this->set_response_handler( API\Catalog\Product_Group\Products\Read\Response::class );
-
+	public function get_product_group_products( string $product_group_id, int $limit = 1000 ): API\ProductCatalog\ProductGroups\Read\Response {
+		$request = new API\ProductCatalog\ProductGroups\Read\Request( $product_group_id, $limit );
+		$this->set_response_handler( API\ProductCatalog\ProductGroups\Read\Response::class );
 		return $this->perform_request( $request );
 	}
 
 
 	/**
-	 * Finds a Product Item using the Catalog ID and the Retailer ID of the product or product variation.
+	 * Creates a Product under the specified Product Group.
 	 *
-	 * @since 2.0.0
+	 * @since 3.4.9
 	 *
-	 * @param string $catalog_id catalog ID
-	 * @param string $retailer_id retailer ID of the product
-	 * @return Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $product_catalog_id Facebook Product Catalog ID.
+	 * @param array  $data Facebook Product Data.
+	 * @return API\Response|API\ProductCatalog\Products\Create\Response
+	 * @throws ApiException In case of network request error.
 	 */
-	public function find_product_item( $catalog_id, $retailer_id ) {
-
-		$request = new \SkyVerge\WooCommerce\Facebook\API\Catalog\Product_Item\Find\Request( $catalog_id, $retailer_id );
-
-		$this->set_response_handler( \SkyVerge\WooCommerce\Facebook\API\Catalog\Product_Item\Response::class );
-
-		return $this->perform_request( $request );
-	}
-
-
-	/**
-	 * Creates a Product Item object.
-	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $product_group_id parent product ID
-	 * @param array  $data product data
-	 * @return Response
-	 * @throws Framework\SV_WC_API_Exception
-	 */
-	public function create_product_item( $product_group_id, $data ) {
-
-		$request = $this->get_new_request(
-			array(
-				'path'   => "/{$product_group_id}/products",
-				'method' => 'POST',
-			)
-		);
-
-		$request->set_data( $data );
-
-		$this->set_response_handler( Response::class );
-
+	public function create_product_item( string $product_catalog_id, array $data ): API\ProductCatalog\Products\Create\Response {
+		$request = new API\ProductCatalog\Products\Create\Request( $product_catalog_id, $data );
+		$this->set_response_handler( API\ProductCatalog\Products\Create\Response::class );
 		return $this->perform_request( $request );
 	}
 
@@ -537,26 +421,14 @@ class API extends Framework\SV_WC_API_Base {
 	/**
 	 * Updates a Product Item object.
 	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $product_item_id product item ID
-	 * @param array  $data product data
-	 * @return Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $facebook_product_id Facebook Product ID.
+	 * @param array  $data Product Data.
+	 * @return API\Response|API\ProductCatalog\Products\Update\Response
+	 * @throws ApiException In case of network request error.
 	 */
-	public function update_product_item( $product_item_id, $data ) {
-
-		$request = $this->get_new_request(
-			array(
-				'path'   => "/{$product_item_id}",
-				'method' => 'POST',
-			)
-		);
-
-		$request->set_data( $data );
-
-		$this->set_response_handler( Response::class );
-
+	public function update_product_item( string $facebook_product_id, array $data ): API\ProductCatalog\Products\Update\Response {
+		$request = new API\ProductCatalog\Products\Update\Request( $facebook_product_id, $data );
+		$this->set_response_handler( API\ProductCatalog\Products\Update\Response::class );
 		return $this->perform_request( $request );
 	}
 
@@ -564,26 +436,170 @@ class API extends Framework\SV_WC_API_Base {
 	/**
 	 * Deletes a Product Item object.
 	 *
-	 * @since 2.0.0
-	 *
-	 * @param string $product_item_id product item ID
-	 * @return Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @param string $facebook_product_id Facebook Product ID.
+	 * @return API\Response|API\ProductCatalog\Products\Delete\Response
+	 * @throws ApiException In case of network request error.
 	 */
-	public function delete_product_item( $product_item_id ) {
-
-		$request = $this->get_new_request(
-			array(
-				'path'   => "/{$product_item_id}",
-				'method' => 'DELETE',
-			)
-		);
-
-		$this->set_response_handler( Response::class );
-
+	public function delete_product_item( string $facebook_product_id ): API\ProductCatalog\Products\Delete\Response {
+		$request = new API\ProductCatalog\Products\Delete\Request( $facebook_product_id );
+		$this->set_response_handler( API\ProductCatalog\Products\Delete\Response::class );
 		return $this->perform_request( $request );
 	}
 
+
+	/**
+	 * Returns product Facebook ID and Facebook Group ID.
+	 *
+	 * @param string $facebook_product_catalog_id
+	 * @param string $facebook_retailer_id
+	 * @return API\Response|API\ProductCatalog\Products\Id\Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function get_product_facebook_ids( string $facebook_product_catalog_id, string $facebook_retailer_id ): API\ProductCatalog\Products\Id\Response {
+		$request = new API\ProductCatalog\Products\Id\Request( $facebook_product_catalog_id, $facebook_retailer_id );
+		$this->set_response_handler( API\ProductCatalog\Products\Id\Response::class );
+		return $this->perform_request( $request );
+	}
+
+
+	/**
+	 * @param string $product_catalog_id
+	 * @param array  $data
+	 * @return API\Response|API\ProductCatalog\ProductSets\Create\Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function create_product_set_item( string $product_catalog_id, array $data ): API\ProductCatalog\ProductSets\Create\Response {
+		$request = new API\ProductCatalog\ProductSets\Create\Request( $product_catalog_id, $data );
+		$this->set_response_handler( API\ProductCatalog\ProductSets\Create\Response::class );
+		return $this->perform_request( $request );
+	}
+
+
+	/**
+	 * @param string $product_set_id
+	 * @param array  $data
+	 * @return API\Response|API\ProductCatalog\ProductSets\Update\Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function update_product_set_item( string $product_set_id, array $data ): API\ProductCatalog\ProductSets\Update\Response {
+		$request = new API\ProductCatalog\ProductSets\Update\Request( $product_set_id, $data );
+		$this->set_response_handler( API\ProductCatalog\ProductSets\Update\Response::class );
+		return $this->perform_request( $request );
+	}
+
+
+	/**
+	 * @param string $product_set_id Facebook Product Set ID.
+	 * @param bool   $allow_live_deletion Allow live Facebook Product Set Deletion.
+	 * @return API\Response|API\ProductCatalog\ProductSets\Delete\Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function delete_product_set_item( string $product_set_id, bool $allow_live_deletion ): API\ProductCatalog\ProductSets\Delete\Response {
+		$request = new API\ProductCatalog\ProductSets\Delete\Request( $product_set_id, $allow_live_deletion );
+		$this->set_response_handler( API\ProductCatalog\ProductSets\Delete\Response::class );
+		return $this->perform_request( $request );
+	}
+
+	/**
+	 * @param string $product_catalog_id Facebook Product Catalog ID.
+	 * @param string $retailer_id Facebook Product Set Retailer ID.
+	 * @return API\Response|API\ProductCatalog\ProductSets\Read\Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function read_product_set_item( string $product_catalog_id, string $retailer_id ): API\ProductCatalog\ProductSets\Read\Response {
+		$request = new API\ProductCatalog\ProductSets\Read\Request( $product_catalog_id, $retailer_id );
+		$this->set_response_handler( API\ProductCatalog\ProductSets\Read\Response::class );
+		return $this->perform_request( $request );
+	}
+
+	/**
+	 * @param string $product_catalog_id
+	 * @return API\Response|API\ProductCatalog\ProductFeeds\ReadAll\Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function read_feeds( string $product_catalog_id ): API\ProductCatalog\ProductFeeds\ReadAll\Response {
+		$request = new API\ProductCatalog\ProductFeeds\ReadAll\Request( $product_catalog_id );
+		$this->set_response_handler( API\ProductCatalog\ProductFeeds\ReadAll\Response::class );
+		return $this->perform_request( $request );
+	}
+
+
+	/**
+	 * @param string $product_feed_id Facebook Product Feed ID.
+	 * @return Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function read_feed( string $product_feed_id ) {
+		$request = new API\ProductCatalog\ProductFeeds\Read\Request( $product_feed_id );
+		$this->set_response_handler( API\ProductCatalog\ProductFeeds\Read\Response::class );
+		return $this->perform_request( $request );
+	}
+
+	/**
+	 * @param string $product_catalog_id Facebook Product Catalog ID.
+	 * @param array  $data Product Feed Data.
+	 * @return Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function create_feed( string $product_catalog_id, array $data ) {
+		$request = new API\ProductCatalog\ProductFeeds\Create\Request( $product_catalog_id, $data );
+		$this->set_response_handler( API\ProductCatalog\ProductFeeds\Create\Response::class );
+		return $this->perform_request( $request );
+	}
+
+
+	/**
+	 * @param string $product_feed_upload_id
+	 * @return Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function read_upload( string $product_feed_upload_id ) {
+		$request = new API\ProductCatalog\ProductFeedUploads\Read\Request( $product_feed_upload_id );
+		$this->set_response_handler( API\ProductCatalog\ProductFeedUploads\Read\Response::class );
+		return $this->perform_request( $request );
+	}
+
+	/**
+	 * @param string $product_feed_id Facebook Product Feed ID.
+	 * @param array  $data Product Feed Data.
+	 * @return Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function create_product_feed_upload( string $product_feed_id, array $data ): Response {
+		$request = new API\ProductCatalog\ProductFeedUploads\Create\Request( $product_feed_id, $data );
+		$this->set_response_handler( API\ProductCatalog\ProductFeedUploads\Create\Response::class );
+		return $this->perform_request( $request );
+	}
+
+	/**
+	 * @param string $cpi_id The commerce partner integration id.
+	 * @param array  $data The json body for the Generic Feed Upload endpoint.
+	 *
+	 * @return Response
+	 * @throws Request_Limit_Reached In case of rate limit error.
+	 * @throws ApiException In case of network request error.
+	 */
+	public function create_common_data_feed_upload( string $cpi_id, array $data ): Response {
+		$request = new API\CommonFeedUploads\Create\Request( $cpi_id, $data );
+		$this->set_response_handler( API\CommonFeedUploads\Create\Response::class );
+		return $this->perform_request( $request );
+	}
+
+	public function log_to_meta( $context ) {
+		$request = new API\MetaLog\Request( $context );
+		$this->set_response_handler( API\MetaLog\Response::class );
+		return $this->perform_request( $request );
+	}
 
 	/**
 	 * Sends Pixel events.
@@ -593,17 +609,25 @@ class API extends Framework\SV_WC_API_Base {
 	 * @param string  $pixel_id pixel ID
 	 * @param Event[] $events events to send
 	 * @return Response
-	 * @throws Framework\SV_WC_API_Exception
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
 	public function send_pixel_events( $pixel_id, array $events ) {
-
 		$request = new API\Pixel\Events\Request( $pixel_id, $events );
-
 		$this->set_response_handler( Response::class );
-
 		return $this->perform_request( $request );
 	}
 
+	/**
+	 * @param string $key_project The key project.
+	 * @return Response
+	 * @throws ApiException In case of network request error.
+	 * @throws API\Exceptions\Request_Limit_Reached In case of rate limit error.
+	 */
+	public function get_public_key( string $key_project ): Response {
+		$request = new API\PublicKeyGet\Request( $key_project );
+		$this->set_response_handler( API\Response::class );
+		return $this->perform_request( $request );
+	}
 
 	/**
 	 * Gets the next page of results for a paginated response.
@@ -613,191 +637,26 @@ class API extends Framework\SV_WC_API_Base {
 	 * @param API\Response $response previous response object
 	 * @param int          $additional_pages number of additional pages of results to retrieve
 	 * @return API\Response|null
-	 * @throws Framework\SV_WC_API_Exception
+	 * @throws ApiException In case of a general API error or rate limit error.
 	 */
-	public function next( API\Response $response, $additional_pages = null ) {
-
+	public function next( API\Response $response, int $additional_pages = 0 ) {
 		$next_response = null;
-
 		// get the next page if we haven't reached the limit of pages to retrieve and the endpoint for the next page is available
-		if ( ( null === $additional_pages || $response->get_pages_retrieved() <= $additional_pages ) && $response->get_next_page_endpoint() ) {
-
+		if ( ( 0 === $additional_pages || $response->get_pages_retrieved() <= $additional_pages ) && $response->get_next_page_endpoint() ) {
 			$components = parse_url( str_replace( $this->request_uri, '', $response->get_next_page_endpoint() ) );
-
-			$request = $this->get_new_request(
-				array(
-					'path'   => isset( $components['path'] ) ? $components['path'] : '',
+			$request    = $this->get_new_request(
+				[
+					'path'   => $components['path'] ?? '',
 					'method' => 'GET',
-					'params' => isset( $components['query'] ) ? wp_parse_args( $components['query'] ) : array(),
-				)
+					'params' => isset( $components['query'] ) ? wp_parse_args( $components['query'] ) : [],
+				]
 			);
-
 			$this->set_response_handler( get_class( $response ) );
-
 			$next_response = $this->perform_request( $request );
-
 			// this is the n + 1 page of results for the original response
 			$next_response->set_pages_retrieved( $response->get_pages_retrieved() + 1 );
 		}
-
 		return $next_response;
-	}
-
-
-	/**
-	 * Gets all new orders.
-	 *
-	 * @since 2.1.0
-	 *
-	 * @param string $page_id page ID
-	 * @return API\Orders\Response
-	 * @throws Framework\SV_WC_API_Exception
-	 */
-	public function get_new_orders( $page_id ) {
-
-		$request_args = array(
-			'state' => array(
-				Order::STATUS_PROCESSING,
-				Order::STATUS_CREATED,
-			),
-		);
-
-		$request = new API\Orders\Request( $page_id, $request_args );
-
-		$this->set_response_handler( API\Orders\Response::class );
-
-		return $this->perform_request( $request );
-	}
-
-
-	/**
-	 * Gets the latest cancelled orders.
-	 *
-	 * @since 2.1.0
-	 *
-	 * @param string $page_id page ID
-	 * @return API\Orders\Response
-	 * @throws Framework\SV_WC_API_Exception
-	 */
-	public function get_cancelled_orders( $page_id ) {
-
-		$request_args = array(
-			'state'         => array(
-				Order::STATUS_COMPLETED,
-			),
-			'updated_after' => time() - facebook_for_woocommerce()->get_commerce_handler()->get_orders_handler()->get_order_update_interval(),
-			'filters'       => 'has_cancellations',
-		);
-
-		$request = new API\Orders\Request( $page_id, $request_args );
-
-		$this->set_response_handler( API\Orders\Response::class );
-
-		return $this->perform_request( $request );
-	}
-
-
-	/**
-	 * Gets a single order based on its remote ID.
-	 *
-	 * @since 2.1.0
-	 *
-	 * @param string $remote_id remote order ID
-	 * @return API\Orders\Read\Response
-	 * @throws Framework\SV_WC_API_Exception
-	 */
-	public function get_order( $remote_id ) {
-
-		$request = new API\Orders\Read\Request( $remote_id );
-
-		$this->set_response_handler( API\Orders\Read\Response::class );
-
-		return $this->perform_request( $request );
-	}
-
-
-	/**
-	 * Acknowledges the given order.
-	 *
-	 * @since 2.1.0
-	 *
-	 * @param string $remote_id remote order ID
-	 * @param string $merchant_order_reference WC order ID
-	 * @return API\Response
-	 * @throws Framework\SV_WC_API_Exception
-	 */
-	public function acknowledge_order( $remote_id, $merchant_order_reference ) {
-
-		$request = new API\Orders\Acknowledge\Request( $remote_id, $merchant_order_reference );
-
-		$this->set_response_handler( API\Response::class );
-
-		return $this->perform_request( $request );
-	}
-
-
-	/**
-	 * Issues a fulfillment request for the given order.
-	 *
-	 * @see https://developers.facebook.com/docs/commerce-platform/order-management/fulfillment-api#attach_shipment
-	 *
-	 * @since 2.1.0
-	 *
-	 * @param string $remote_id remote order ID
-	 * @param array  $fulfillment_data fulfillment data to be sent on the request
-	 * @return API\Response
-	 * @throws Framework\SV_WC_API_Exception
-	 */
-	public function fulfill_order( $remote_id, $fulfillment_data ) {
-
-		$request = new API\Orders\Fulfillment\Request( $remote_id, $fulfillment_data );
-
-		$this->set_response_handler( API\Response::class );
-
-		return $this->perform_request( $request );
-	}
-
-
-	/**
-	 * Cancels the given order.
-	 *
-	 * @since 2.1.0
-	 *
-	 * @param string $remote_id remote order ID
-	 * @param string $reason cancellation reason
-	 * @param bool   $restock_items whether to restock items remotely
-	 * @return API\Response
-	 * @throws Framework\SV_WC_API_Exception
-	 */
-	public function cancel_order( $remote_id, $reason, $restock_items = true ) {
-
-		$request = new API\Orders\Cancel\Request( $remote_id, $reason, $restock_items );
-
-		$this->set_response_handler( API\Response::class );
-
-		return $this->perform_request( $request );
-	}
-
-
-	/**
-	 * Issues a refund request for the given order.
-	 *
-	 * @see https://developers.facebook.com/docs/commerce-platform/order-management/cancellation-refund-api#refund_order
-	 *
-	 * @since 2.1.0
-	 *
-	 * @param string $remote_id remote order ID
-	 * @param array  $refund_data refund data to be sent on the request
-	 * @return API\Response
-	 * @throws Framework\SV_WC_API_Exception
-	 */
-	public function add_order_refund( $remote_id, $refund_data ) {
-
-		$request = new API\Orders\Refund\Request( $remote_id, $refund_data );
-
-		$this->set_response_handler( API\Response::class );
-
-		return $this->perform_request( $request );
 	}
 
 
@@ -815,21 +674,17 @@ class API extends Framework\SV_WC_API_Base {
 	 * }
 	 * @return Request
 	 */
-	protected function get_new_request( $args = array() ) {
-
+	protected function get_new_request( $args = [] ) {
 		$defaults = array(
 			'path'   => '/',
 			'method' => 'GET',
-			'params' => array(),
+			'params' => [],
 		);
-
-		$args    = wp_parse_args( $args, $defaults );
-		$request = new Request( $args['path'], $args['method'] );
-
+		$args     = wp_parse_args( $args, $defaults );
+		$request  = new Request( $args['path'], $args['method'] );
 		if ( $args['params'] ) {
 			$request->set_params( $args['params'] );
 		}
-
 		return $request;
 	}
 
@@ -842,9 +697,61 @@ class API extends Framework\SV_WC_API_Base {
 	 * @return \WC_Facebookcommerce
 	 */
 	protected function get_plugin() {
-
 		return facebook_for_woocommerce();
 	}
 
+	/**
+	 * Repairs the commerce integration connection.
+	 *
+	 * @param string $fbe_external_business_id The external business ID associated with the Facebook Business Extension
+	 * @param string $shop_domain The domain of the WooCommerce site
+	 * @param string $admin_url The admin URL of the WooCommerce site
+	 * @param string $extension_version The version of the Facebook for WooCommerce extension
+	 *
+	 * @return API\Response|API\CommerceIntegration\Repair\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
+	 */
+	public function repair_commerce_integration( string $fbe_external_business_id, string $shop_domain, string $admin_url, string $extension_version ): API\CommerceIntegration\Repair\Response {
+		$request = new API\CommerceIntegration\Repair\RepairRequest( $fbe_external_business_id, $shop_domain, $admin_url, $extension_version );
+		$this->set_response_handler( API\CommerceIntegration\Repair\Response::class );
+		return $this->perform_request( $request );
+	}
 
+	/**
+	 * Updates the commerce integration configuration.
+	 *
+	 * @param string      $commerce_integration_id The ID of the commerce integration to update
+	 * @param string|null $extension_version The version of the Facebook for WooCommerce extension
+	 * @param string|null $admin_url The admin URL of the WooCommerce site
+	 * @param string|null $country_code ISO2 country code
+	 * @param string|null $currency ISO currency code
+	 * @param string|null $platform_store_id The ID of the current website on a multisite setup
+	 * @param string      $commerce_partner_seller_platform_type The type of commerce partner platform
+	 * @param string      $installation_status The installation status of the integration
+	 * @return API\Response|API\CommerceIntegration\Configuration\Update\Response
+	 * @throws ApiException In case of a general API error or rate limit error.
+	 */
+	public function update_commerce_integration(
+		string $commerce_integration_id,
+		?string $extension_version = null,
+		?string $admin_url = null,
+		?string $country_code = null,
+		?string $currency = null,
+		?string $platform_store_id = null,
+		string $commerce_partner_seller_platform_type = 'SELF_SERVE',
+		string $installation_status = 'ACCESS_TOKEN_DEPOSITED'
+	): API\CommerceIntegration\Configuration\Update\Response {
+		$request = new API\CommerceIntegration\Configuration\Update\UpdateRequest(
+			$commerce_integration_id,
+			$extension_version,
+			$admin_url,
+			$country_code,
+			$currency,
+			$platform_store_id,
+			$commerce_partner_seller_platform_type,
+			$installation_status
+		);
+		$this->set_response_handler( API\CommerceIntegration\Configuration\Update\Response::class );
+		return $this->perform_request( $request );
+	}
 }

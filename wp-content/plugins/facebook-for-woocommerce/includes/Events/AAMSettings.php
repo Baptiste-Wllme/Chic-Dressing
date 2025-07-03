@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,9 +8,9 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook\Events;
+namespace WooCommerce\Facebook\Events;
 
-defined( 'ABSPATH' ) or exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Base Automatic advanced matching settings object
@@ -69,16 +68,19 @@ class AAMSettings {
 	public static function build_from_pixel_id( $pixel_id ) {
 		$url      = self::get_url( $pixel_id );
 		$response = wp_remote_get( $url );
+
 		if ( is_wp_error( $response ) ) {
 			return null;
-		} else {
-			$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
-			if ( ! array_key_exists( 'errorMessage', $response_body ) ) {
-				$response_body['matchingConfig']['pixelId'] = $pixel_id;
-				return new AAMSettings( $response_body['matchingConfig'] );
-			}
 		}
-		return null;
+
+		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		if ( ! is_array( $response_body ) || array_key_exists( 'errorMessage', $response_body ) || ! isset( $response_body['matchingConfig'] ) ) {
+			return null;
+		}
+
+		$response_body['matchingConfig']['pixelId'] = $pixel_id;
+		return new AAMSettings( $response_body['matchingConfig'] );
 	}
 
 	/**
@@ -118,7 +120,7 @@ class AAMSettings {
 	 * Sets the enable automatic matching flag
 	 *
 	 * @since 2.0.3
-	 *
+	 * @param bool $enable_automatic_matching Whether automatic matching is enabled
 	 * @return AAMSettings
 	 */
 	public function set_enable_automatic_matching( $enable_automatic_matching ) {
@@ -130,7 +132,7 @@ class AAMSettings {
 	 * Sets the enabled automatic matching fields flag
 	 *
 	 * @since 2.0.3
-	 *
+	 * @param string[] $enabled_automatic_matching_fields Array of enabled matching fields
 	 * @return AAMSettings
 	 */
 	public function set_enabled_automatic_matching_fields( $enabled_automatic_matching_fields ) {
@@ -142,7 +144,7 @@ class AAMSettings {
 	 * Sets the pixel id
 	 *
 	 * @since 2.0.3
-	 *
+	 * @param string $pixel_id The Facebook pixel ID
 	 * @return AAMSettings
 	 */
 	public function set_pixel_id( $pixel_id ) {
@@ -158,7 +160,7 @@ class AAMSettings {
 	 * @return string
 	 */
 	public function __toString() {
-		return json_encode(
+		return wp_json_encode(
 			array(
 				'enableAutomaticMatching'        => $this->enable_automatic_matching,
 				'enabledAutomaticMatchingFields' => $this->enabled_automatic_matching_fields,

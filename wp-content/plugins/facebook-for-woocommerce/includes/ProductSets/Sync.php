@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,11 +8,9 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook\ProductSets;
+namespace WooCommerce\Facebook\ProductSets;
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
+defined( 'ABSPATH' ) || exit;
 
 /**
  * The product set sync handler.
@@ -72,6 +69,15 @@ class Sync {
 	protected static $prev_product_set = array();
 
 	/**
+	 * Product's Product Set Previous Name
+	 *
+	 * @since 2.6.30
+	 *
+	 * @var string
+	 */
+	protected static $prev_product_name = '';
+
+	/**
 	 * Product's Product Set New List
 	 *
 	 * @since 2.3.0
@@ -79,6 +85,15 @@ class Sync {
 	 * @var array
 	 */
 	protected static $new_product_set = array();
+
+	/**
+	 * Product's Product Set New Name
+	 *
+	 * @since 2.6.30
+	 *
+	 * @var string
+	 */
+	protected static $new_product_name = '';
 
 	/**
 	 * Categories field name
@@ -122,7 +137,7 @@ class Sync {
 		// product set hooks, compare taxonomies the lists before and after saving product to see if must sync
 		add_action( 'created_fb_product_set', array( $this, 'fb_product_set_hook_before' ), 1 );
 		add_action( 'created_fb_product_set', array( $this, 'fb_product_set_hook_after' ), 99 );
-		add_action( 'edited_fb_product_set', array( $this, 'fb_product_set_hook_before' ), 1 );
+		add_action( 'edit_fb_product_set', array( $this, 'fb_product_set_hook_before' ), 1 );
 		add_action( 'edited_fb_product_set', array( $this, 'fb_product_set_hook_after' ), 99 );
 
 		// product cat and product set delete hooks, remove or check if must remove any product set
@@ -239,7 +254,8 @@ class Sync {
 	 * @param int $term_id Term ID.
 	 */
 	public function fb_product_set_hook_before( $term_id ) {
-		self::$prev_product_cat = get_term_meta( $term_id, $this->categories_field, true );
+		self::$prev_product_cat  = get_term_meta( $term_id, $this->categories_field, true );
+		self::$prev_product_name = get_term( $term_id )->name;
 	}
 
 
@@ -251,8 +267,9 @@ class Sync {
 	 * @param int $term_id Term ID.
 	 */
 	public function fb_product_set_hook_after( $term_id ) {
-		self::$new_product_cat = get_term_meta( $term_id, $this->categories_field, true );
-		if ( ! empty( $this->get_all_diff( 'product_cat' ) ) ) {
+		self::$new_product_cat  = get_term_meta( $term_id, $this->categories_field, true );
+		self::$new_product_name = get_term( $term_id )->name;
+		if ( ! empty( $this->get_all_diff( 'product_cat' ) ) || self::$prev_product_name !== self::$new_product_name ) {
 			$this->maybe_sync_product_set( $term_id );
 		}
 	}
@@ -283,7 +300,8 @@ class Sync {
 	 *
 	 * @since 2.3.0
 	 *
-	 * @param int $product_set_term_id Product Set Term ID.
+	 * @param int    $product_set_term_id Product Set Term ID.
+	 * @param string $taxonomy            Taxonomy name.
 	 */
 	public function sync_remove_product_set( $product_set_term_id, $taxonomy ) {
 
@@ -309,7 +327,7 @@ class Sync {
 	 *
 	 * @since 2.3.0
 	 *
-	 * @param int $product_set_id FB Product Set Term ID.
+	 * @param int $product_set_id Facebook Product Set Term ID.
 	 */
 	public function maybe_sync_product_set( $product_set_id ) {
 
@@ -363,7 +381,7 @@ class Sync {
 			implode( ', ', array_map( 'intval', $product_ids ) )
 		);
 
-		$variation_ids = $wpdb->get_results( $sql );
+		$variation_ids = $wpdb->get_results( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		if ( ! empty( $variation_ids ) ) {
 
 			// product_variations: add retailer id to the products filter
@@ -446,6 +464,4 @@ class Sync {
 
 		return array_merge( $removed, $added );
 	}
-
-
 }

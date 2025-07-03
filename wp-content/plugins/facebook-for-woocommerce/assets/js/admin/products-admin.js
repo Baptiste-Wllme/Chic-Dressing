@@ -122,27 +122,7 @@ jQuery( document ).ready( function( $ ) {
 			}
 		}
 
-
-		/**
-		 * Toggles (shows/hides) the visibility of Facebook Commerce setting fields.
-		 *
-		 * @since 2.1.0
-		 *
-		 * @param {boolean} enabled whether the settings fields should be enabled or not
-		 * @param {jQuery} $container a common ancestor of all the elements that can be shown/hidden
-		 */
-		function toggleFacebookCommerceSettings( enabled, $container ) {
-
-			let $group = $container.find( '.wc-facebook-commerce-options-group' );
-
-			if ( enabled ) {
-				$group.show();
-			} else {
-				$group.hide();
-			}
-		}
-
-
+		
 		/**
 		 * Disables and changes the checked status of the Sell on Instagram setting field.
 		 *
@@ -394,30 +374,6 @@ jQuery( document ).ready( function( $ ) {
 			$syncModeSelect.val( $syncModeSelect.attr( 'data-original-value') );
 		}
 
-
-		/**
-		 * Determines whether we should show the product removed from sync confirm modal.
-		 *
-		 * @since 2.3.0
-		 *
-		 * @param {jQuery} $syncModeSelect a jQuery object with one or more sync mode select elements
-		 * @return {boolean}
-		 */
-		function shouldShowProductRemovedFromSyncConfirmModal( $syncModeSelect ) {
-
-			let syncValuesStatus = $syncModeSelect.map( function ( index, selectElement ) {
-
-				let $syncMode     	   = $( selectElement );
-				let syncModeValue 	   = $syncMode.val();
-				let isProductPublished = !! facebook_for_woocommerce_products_admin.is_product_published;
-
-				return isProductPublished && 'sync_disabled' === syncModeValue && syncModeValue !== $syncMode.attr( 'data-original-value' );
-			} ).toArray();
-
-			return syncValuesStatus.indexOf( true ) > -1;
-		}
-
-
 		/**
 		 * Gets the target product ID based on the given sync select element.
 		 *
@@ -435,31 +391,6 @@ jQuery( document ).ready( function( $ ) {
 			// variable product
 			return $syncModeSelect.closest( '.woocommerce_variation' ).find( 'input[name^=variable_post_id]' ).val();
 		}
-
-
-		/**
-		 * Shows the product removed from sync confirm modal.
-		 *
-		 * @since 2.3.0
-		 *
-		 * @param {jQuery} $syncModeSelect a jQuery element object
-		 */
-		function showProductRemovedFromSyncConfirmModal( $syncModeSelect ) {
-
-			closeExistingModal();
-
-			$maybeRemoveFromSyncModeSelect = $syncModeSelect;
-			maybeRemoveFromSyncProductID   = getSyncTargetProductID( $syncModeSelect )
-
-			new $.WCBackboneModal.View( {
-				target: 'facebook-for-woocommerce-modal',
-				string: {
-					message: facebook_for_woocommerce_products_admin.product_removed_from_sync_confirm_modal_message,
-					buttons: facebook_for_woocommerce_products_admin.product_removed_from_sync_confirm_modal_buttons
-				}
-			} );
-		}
-
 
 		/**
 		 * Fills in product IDs to remove from Sync.
@@ -488,32 +419,7 @@ jQuery( document ).ready( function( $ ) {
 			populateRemoveFromSyncProductIDsField();
 		}
 
-		let $maybeRemoveFromSyncModeSelect = null;
-		let maybeRemoveFromSyncProductID = null;
 		let removeFromSyncProductIDs = [];
-
-		$( document.body ).on( 'click', 'button.button-product-removed-from-sync-delete', function () {
-
-			if ( maybeRemoveFromSyncProductID ) {
-
-				closeExistingModal();
-
-				removeFromSyncProductIDs.push( maybeRemoveFromSyncProductID );
-
-				populateRemoveFromSyncProductIDsField();
-			}
-		} )
-		.on( 'click', 'button.button-product-removed-from-sync-cancel', function () {
-
-			closeExistingModal();
-
-			if ( $maybeRemoveFromSyncModeSelect ) {
-				revertSyncModeToOriginalValue( $maybeRemoveFromSyncModeSelect );
-				$maybeRemoveFromSyncModeSelect = null;
-			}
-
-			populateRemoveFromSyncProductIDsField();
-		} );
 
 		// handle change events for the Sell on Instagram checkbox field
 		$( '#facebook_options #wc_facebook_commerce_enabled' ).on( 'change', function() {
@@ -549,7 +455,6 @@ jQuery( document ).ready( function( $ ) {
 			let syncEnabled = simpleProductSyncModeSelect.val() !== 'sync_disabled';
 
 			toggleFacebookSettings( syncEnabled, facebookSettingsPanel );
-			toggleFacebookCommerceSettings( syncEnabled, facebookSettingsPanel );
 
 			if ( syncEnabled ) {
 				removeProductIDFromUnSyncList( getSyncTargetProductID( simpleProductSyncModeSelect ) );
@@ -557,15 +462,21 @@ jQuery( document ).ready( function( $ ) {
 
 			simpleProductSyncModeSelect.prop( 'original', simpleProductSyncModeSelect.val() );
 
-			if ( shouldShowProductRemovedFromSyncConfirmModal( simpleProductSyncModeSelect ) ) {
-				showProductRemovedFromSyncConfirmModal( simpleProductSyncModeSelect );
-			}
-
 		} ).trigger( 'change' );
 
 		$( '#_virtual' ).on( 'change', function () {
 			toggleSyncAndShowOption( ! $( this ).prop( 'checked' ), simpleProductSyncModeSelect );
 		} ).trigger( 'change' );
+
+		// Update the sync when catalog visibility changes.
+		$( 'input[name=_visibility]' ).on ( 'change', function(){
+			if ( $( this ).val() !== 'hidden' && $( this ).val() !== 'search' ) {
+
+				if ( simpleProductSyncModeSelect.val() === 'sync_disabled' ) {
+					simpleProductSyncModeSelect.val( 'sync_and_show' ).trigger( 'change' );;
+				}
+			}
+		})
 
 		const $productData = $( '#woocommerce-product-data' );
 
@@ -596,10 +507,6 @@ jQuery( document ).ready( function( $ ) {
 			}
 
 			$syncModeSelect.prop( 'original', $syncModeSelect.val() );
-
-			if ( shouldShowProductRemovedFromSyncConfirmModal( $syncModeSelect ) ) {
-				showProductRemovedFromSyncConfirmModal( $syncModeSelect );
-			}
 		} );
 
 		$productData.on( 'woocommerce_variations_loaded', function () {
@@ -629,12 +536,12 @@ jQuery( document ).ready( function( $ ) {
 			$container.find( `.show-if-product-image-source-${imageSource}` ).closest( '.form-field' ).show();
 		} );
 
-		$( '.js-fb-product-image-source:checked:visible' ).trigger( 'change' );
+		$( '.js-fb-product-image-source:checked' ).trigger( 'change' );
 
 		// trigger settings fields modifiers when variations are loaded
 		$productData.on( 'woocommerce_variations_loaded', function() {
 			$( '.js-variable-fb-sync-toggle:visible' ).trigger( 'change' );
-			$( '.js-fb-product-image-source:checked:visible' ).trigger( 'change' );
+			$( '.js-fb-product-image-source:checked' ).trigger( 'change' );
 			$( '.variable_is_virtual:visible' ).trigger( 'change' );
 		} );
 
@@ -657,76 +564,130 @@ jQuery( document ).ready( function( $ ) {
 		// toggle Sell on Instagram checkbox on page load
 		toggleFacebookSellOnInstagramSetting( isProductReadyForCommerce(), facebookSettingsPanel );
 
-		let submitProductSave = false;
+		// fb product video support
+		const $openMediaButton = $('#open_media_library');
+		const $selectedVideoThumbnailsContainer = $('#fb_product_video_selected_thumbnails');
+		const $hiddenInputField = $('#fb_product_video');
+		let productGalleryFrame;
+		let attachmentIds = $hiddenInputField.val() ? $hiddenInputField.val().split(',').map(Number) : [];
 
-		$( 'form#post input[type="submit"]' ).on( 'click', function( e ) {
+		/**
+		 * Updates the hidden input field with the current list of attachment IDs.
+		 */
+		function updateHiddenInputField() {
+			$hiddenInputField.val(attachmentIds.join(','));
+		}
 
-			if ( shouldShowMissingGoogleProductCategoryAlert() ) {
-				return showMissingGoogleProductCategoryAlert( e );
+		/**
+		 * Creates a video thumbnail element for the given attachment.
+		 *
+		 * @param {Object} attachment The attachment object containing video details.
+		 * @returns {jQuery} The jQuery element representing the video thumbnail.
+		 */
+		function createVideoThumbnail(attachment) {
+			const $videoThumbnail = $('<p>', { class: 'form-field video-thumbnail' });
+			const $img = $('<img>', { src: attachment.icon });
+			const $videoUrl = $('<span>', { text: attachment.url, 'data-attachment-id': attachment.id });
+			const $removeButton = $('<a>', { href: '#', text: 'Remove', class: 'remove-video'});
+
+			$removeButton.on('click', function (event) {
+				event.preventDefault();
+				removeVideoThumbnail(attachment.id, $videoThumbnail);
+			});
+
+			$videoThumbnail.append($img, $videoUrl, $removeButton);
+			return $videoThumbnail;
+		}
+
+		/**
+		 * Removes a video thumbnail and updates the list of attachment IDs.
+		 *
+		 * @param {Number} attachmentId The ID of the attachment to remove.
+		 * @param {jQuery} $videoThumbnail The jQuery element representing the video thumbnail to remove.
+		 */
+		function removeVideoThumbnail(attachmentId, $videoThumbnail) {
+			attachmentIds = attachmentIds.filter(id => id !== attachmentId);
+			updateHiddenInputField();
+			$videoThumbnail.remove();
+		}
+
+		/**
+		 * Handles the selection of media items from the media library.
+		 *
+		 * @param {Object} selection The selection object containing the chosen media items.
+		 */
+		function handleMediaSelection(selection) {
+			const selectedAttachmentIds = selection.map(attachment => attachment.id);
+			const removedIds = attachmentIds.filter(id => !selectedAttachmentIds.includes(id));
+			const newIds = selectedAttachmentIds.filter(id => !attachmentIds.includes(id));
+
+			// Remove unselected video thumbnails
+			$selectedVideoThumbnailsContainer.find('.form-field').each(function () {
+				const $videoThumbnail = $(this);
+				const videoAttachmentId = parseInt($videoThumbnail.find('span').data('attachment-id'), 10);
+				if (removedIds.includes(videoAttachmentId)) {
+					removeVideoThumbnail(videoAttachmentId, $videoThumbnail);
+				}
+			});
+
+			// Add new video thumbnails
+			selection.each(function (attachment) {
+				attachment = attachment.toJSON();
+				// Validate that the attachment is a video
+				if (newIds.includes(attachment.id) && attachment.mime && attachment.mime.startsWith('video/')) {
+					const $videoThumbnail = createVideoThumbnail(attachment);
+					$selectedVideoThumbnailsContainer.append($videoThumbnail);
+					attachmentIds.push(attachment.id);
+				} else if (!attachment.mime.startsWith('video/')) {
+					alert('Please select a valid video file.');
+				}
+			});
+
+			updateHiddenInputField();
+		}
+
+		// Event handler for opening the media library
+		$openMediaButton.on('click', function (e) {
+			e.preventDefault();
+			if (productGalleryFrame) {
+				productGalleryFrame.open();
+				return;
 			}
 
-			if ( ! submitProductSave ) {
-				e.preventDefault();
-			} else {
-				return true;
-			}
+			productGalleryFrame = wp.media({
+				title: 'Select videos',
+				button: { text: 'Save' },
+				library: { type: 'video' },
+				multiple: true
+			});
 
-			let $submitButton    = $( this ),
-				productID        = parseInt( $( 'input#post_ID' ).val(), 10 ),
-				productCat       = [],
-				// this query will get tags when not using checkboxes
-				productTag       = $( 'textarea[name="tax_input[product_tag]"]' ).length ? $( 'textarea[name="tax_input[product_tag]"]' ).val().split( ',' ) : [],
-				syncEnabled      = simpleProductSyncModeSelect.val() !== 'sync_disabled',
-				varSyncEnabled   = isSyncEnabledForVariableProduct();
+			// Pre-select previously selected attachments
+			productGalleryFrame.on('open', function () {
+				const selection = productGalleryFrame.state().get('selection');
+				attachmentIds.forEach(function (id) {
+					const attachment = wp.media.attachment(id);
+					attachment.fetch();
+					selection.add(attachment ? [attachment] : []);
+				});
+			});
 
-			$( '#taxonomy-product_cat input[name="tax_input[product_cat][]"]:checked' ).each( function() {
-				productCat.push( parseInt( $( this ).val(), 10 ) );
-			} );
+			// Handle selection of media
+			productGalleryFrame.on('select', function () {
+				const selection = productGalleryFrame.state().get('selection');
+				handleMediaSelection(selection);
+			});
 
-			// this query will get tags when using checkboxes
-			$( '#taxonomy-product_tag input[name="tax_input[product_tag][]"]:checked' ).each( function() {
-				productTag.push( parseInt( $( this ).val(), 10 ) );
-			} );
+			productGalleryFrame.open();
+		});
 
-			if ( productID > 0 ) {
+		// Event handler for removing video thumbnails
+		$selectedVideoThumbnailsContainer.on('click', '.remove-video', function (event) {
+			event.preventDefault();
+			const $button = $(this);
+			const attachmentId = $button.data('attachment-id');
+			removeVideoThumbnail(attachmentId, $button.closest('.form-field'));
+		});
 
-				$.post( facebook_for_woocommerce_products_admin.ajax_url, {
-					action:           'facebook_for_woocommerce_set_product_sync_prompt',
-					security:         facebook_for_woocommerce_products_admin.set_product_sync_prompt_nonce,
-					sync_enabled:     syncEnabled    ? 'enabled' : 'disabled',
-					var_sync_enabled: varSyncEnabled ? 'enabled' : 'disabled',
-					product:          productID,
-					categories:       productCat,
-					tags:             productTag
-				}, function( response ) {
-
-					// open modal if visibility checkbox is checked or if there are conflicting terms set for sync exclusion
-					if ( response && ! response.success && syncEnabled ) {
-
-						closeExistingModal();
-
-						// open new modal, populate template with AJAX response data
-						new $.WCBackboneModal.View( {
-							target: 'facebook-for-woocommerce-modal',
-							string: response.data
-						} );
-
-					} else {
-
-						// no modal displayed: submit form as normal
-						submitProductSave = true;
-						$submitButton.trigger( 'click' );
-					}
-				} );
-
-			} else {
-
-				// no modal displayed: submit form as normal
-				submitProductSave = true;
-				$submitButton.trigger( 'click' );
-			}
-
-		} );
 	}
 
 

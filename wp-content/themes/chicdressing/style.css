@@ -14,7 +14,19 @@ Text Domain:	 chicdressing
     Add your custom styles here
 */
 
+@font-face {
+  font-family: 'Kalam';
+  src: url('fonts/kalam/Kalam-Regular.woff2') format('woff2'),
+       url('fonts/kalam/Kalam-Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
+body {
+  font-family: 'Kalam', cursive;
+}
+ 
 body .page-content, .page-content select, .page-content input, .page-content textarea, .page-content .post-author a, .page-content .ashe-widget a, .page-content .comment-author {
     color: #a5a5a5;
     font-size: 12px;

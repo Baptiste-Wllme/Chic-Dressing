@@ -1,7 +1,6 @@
 <?php
-// phpcs:ignoreFile
 
-namespace SkyVerge\WooCommerce\Facebook\Debug;
+namespace WooCommerce\Facebook\Debug;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -51,5 +50,4 @@ class ProfilingLoggerProcess {
 	public function get_time_used() {
 		return $this->stop_time - $this->start_time;
 	}
-
 }

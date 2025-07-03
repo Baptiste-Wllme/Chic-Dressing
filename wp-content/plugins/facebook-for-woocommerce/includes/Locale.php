@@ -1,5 +1,4 @@
 <?php
-// phpcs:ignoreFile
 /**
  * Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
  *
@@ -9,9 +8,9 @@
  * @package FacebookCommerce
  */
 
-namespace SkyVerge\WooCommerce\Facebook;
+namespace WooCommerce\Facebook;
 
-defined( 'ABSPATH' ) or exit;
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Helper class with utility methods for handling locales in Facebook.
@@ -150,7 +149,8 @@ class Locale {
 
 			foreach ( self::$supported_locales as $locale ) {
 
-				if ( $name = \Locale::getDisplayName( $locale, substr( $locale, 0, 2 ) ) ) {
+				$name = \Locale::getDisplayName( $locale, substr( $locale, 0, 2 ) );
+				if ( $name ) {
 
 					$locales[ $locale ] = ucfirst( $name );
 				}
@@ -208,6 +208,4 @@ class Locale {
 
 		return array_key_exists( $locale, self::get_supported_locales() );
 	}
-
-
 }

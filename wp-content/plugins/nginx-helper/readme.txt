@@ -1,12 +1,13 @@
 === Nginx Helper ===
-Contributors: rtcamp, rahul286, saurabhshukla, manishsongirkar36, faishal, desaiuditd, darren-slatten, jk3us, daankortenbach, telofy, pjv, llonchj, jinnko, weskoop, bcole808, gungeekatx, rohanveer, chandrapatel, gagan0123, ravanh, michaelbeil, samedwards, niwreg, entr, nuvoPoint, iam404, rittesh.patel, vishalkakadiya, BhargavBhandari90, vincent-lu, murrayjbrown, bryant1410, 1gor, matt-h, pySilver, johan-chassaing, dotsam, sanketio, petenelson, nathanielks, rigagoogoo, dslatten, jinschoi, kelin1003, ,vaishu.agola27 rahulsprajapati, Joel-James, utkarshpatel, gsayed786, shashwatmittal, sudhiryadav, thrijith, stayallive, jaredwsmith, abhijitrakas, umeshnevase
+Contributors: rtcamp, rahul286, saurabhshukla, manishsongirkar36, faishal, desaiuditd, darren-slatten, jk3us, daankortenbach, telofy, pjv, llonchj, jinnko, weskoop, bcole808, gungeekatx, rohanveer, chandrapatel, gagan0123, ravanh, michaelbeil, samedwards, niwreg, entr, nuvoPoint, iam404, rittesh.patel, vishalkakadiya, BhargavBhandari90, bryant1410, 1gor, matt-h, dotsam, nathanielks, rigagoogoo, dslatten, jinschoi, kelin1003, vaishuagola27, rahulsprajapati, utkarshpatel, gsayed786, shashwatmittal, sudhiryadav, thrijith, stayallive, jaredwsmith, abhijitrakas, umeshnevase, sid177, souptik, arafatkn, subscriptiongroup, akrocks, vedantgandhi28, GridPane
+Unlinked Contributors: stefanfisk
 Donate Link: http://rt.cx/eedonate/
-Tags: nginx, cache, purge, nginx map, nginx cache, maps, fastcgi, proxy, redis, redis-cache, rewrite, permalinks
+Tags: nginx, cache-purge, fastcgi, permalinks, redis-cache
 License: GPLv2 or later (of-course)
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires at least: 3.0
-Tested up to: 5.7
-Stable tag: 2.2.2
+Tested up to: 6.7
+Stable tag: 2.3.3
 
 Cleans nginx's fastcgi/proxy cache or redis-cache whenever a post is edited/published. Also does a few more things.
 
@@ -106,20 +107,16 @@ define('RT_WP_NGINX_HELPER_REDIS_PORT', '6000');
 define('RT_WP_NGINX_HELPER_REDIS_PREFIX', 'page-cache:');
 ```
 
-= FAQ - Nginx Memcached Cache =
+**Q. Can I override the redis socket path, username, password?**
 
-**Q. Can I override the memcached hostname, port, prefix and versioned cache key?**
+Yes, you can force override the redis socket path, username, password by defining constant in wp-config.php. For example:
 
-Yes, you can force override the memcached hostname, port or prefix by defining constant in wp-config.php. For example:
+```php
+define( 'RT_WP_NGINX_HELPER_REDIS_UNIX_SOCKET', '/var/run/redis/redis.sock' );
 
-```
-define('RT_WP_NGINX_HELPER_MEMCACHED_HOSTNAME', '10.0.0.1');
+define( 'RT_WP_NGINX_HELPER_REDIS_USERNAME', 'admin' );
 
-define('RT_WP_NGINX_HELPER_MEMCACHED_PORT', '6000');
-
-define('RT_WP_NGINX_HELPER_MEMCACHED_PREFIX', 'page-cache:');
-
-define('RT_WP_NGINX_HELPER_MEMCACHED_VERSIONED_CACHE_KEY', 'page-cache:version');
+define( 'RT_WP_NGINX_HELPER_REDIS_PASSWORD', 'admin' );
 ```
 
 = FAQ - Nginx Map =
@@ -133,6 +130,14 @@ Definitely. `WPMU_ACCEL_REDIRECT` reduces the load on PHP, but it still ask Word
 Most likely yes. A wordpress plugin, if not using explicitly any Apache-only mod, should work on Nginx. Some plugin may need some extra work.
 
 
+= FAQ - WP-CLI =
+
+**Q. How can I update the options using WP-CLI?**
+
+```shell
+wp option patch update rt_wp_nginx_helper_options <option_name> <option_value>
+```
+
 = Still need help! =
 
 Please post your problem in [our free support forum](https://github.com/rtCamp/nginx-helper/issues).
@@ -142,6 +147,48 @@ Please post your problem in [our free support forum](https://github.com/rtCamp/n
 2. Remaining settings
 
 == Changelog ==
+
+= 2.3.3 =
+
+* Fix AMP Purge for method unlink. [#396](https://github.com/rtCamp/nginx-helper/issues/343) - by [Stefan Fisk](https://github.com/stefanfisk)
+
+
+= 2.3.2 =
+
+* Update the contributors list for the plugin. [#343](https://github.com/rtCamp/nginx-helper/issues/343) - by [Vedant Gandhi](https://github.com/Vedant-Gandhi)
+
+
+= 2.3.1 =
+
+* Update the contributors list and tags for the plugin. [#378](https://github.com/rtCamp/nginx-helper/issues/378) - by [Vedant Gandhi](https://github.com/Vedant-Gandhi)
+
+
+= 2.3.0 =
+
+* Disable the purge functionality when importing data. [#52](https://github.com/rtCamp/nginx-helper/pull/52) - by [Vedant Gandhi](https://github.com/Vedant-Gandhi)
+* Added option to preload cache for all Post and Pages. [#47](https://github.com/rtCamp/nginx-helper/pull/47) - by [Vedant Gandhi](https://github.com/Vedant-Gandhi)
+* Added the capability to purge Amp URL's. [#135](https://github.com/rtCamp/nginx-helper/pull/135) - by [Vedant Gandhi](https://github.com/Vedant-Gandhi)
+* Add support for adding Username, Password support for Redis. It also includes the support for Unix Socket Path for Redis along with Database selection. [#343](https://github.com/rtCamp/nginx-helper/pull/343),[#350](https://github.com/rtCamp/nginx-helper/pull/350) - by [Vedant Gandhi](https://github.com/Vedant-Gandhi)
+* Add capability to allow modifying options using WP-CLI. [#307](https://github.com/rtCamp/nginx-helper/pull/307) - by [Vedant Gandhi](https://github.com/Vedant-Gandhi)
+* Fix the plugin crash issue due to internationalization after upgrading to WordPress Version 6.7. [#364](https://github.com/rtCamp/nginx-helper/pull/364) - by [Vedant Gandhi](https://github.com/Vedant-Gandhi)
+
+
+= 2.2.5 =
+* Add the capability to enable/disable purging of feeds. [#281](https://github.com/rtCamp/nginx-helper/issues/281) - by [Amaan Khan](https://github.com/pathan-amaankhan)
+* Fix undefined port error when Redis port is set to empty string. [#333](https://github.com/rtCamp/nginx-helper/issues/333) - by [Amaan Khan](https://github.com/pathan-amaankhan)
+
+= 2.2.4 =
+* Introduces the capability to specify the `NGINX_HELPER_LOG` constant, allowing users to activate the logging feature. [#318](https://github.com/rtCamp/nginx-helper/pull/318) - by [Vishal Kakadiya](https://github.com/vishalkakadiya)
+* Existing users employing the nginx-helper plugin with logging enabled will experience no disruptions. However, if logging is disabled, users must define the `NGINX_HELPER_LOG` constant to re-enable the logging feature.
+
+= 2.2.3 =
+* Add the URL being purged as parameter in `rt_nginx_helper_purge_cached_file` hook. [#271](https://github.com/rtCamp/nginx-helper/pull/271) - by [Arafat Islam](https://github.com/arafatkn)
+* Fix performance issue when saving nav menus. [#112](https://github.com/rtCamp/nginx-helper/issues/112), [#272](https://github.com/rtCamp/nginx-helper/pull/272/) - by [Arafat Islam](https://github.com/arafatkn)
+* Fix purging date archives for custom post types. [#40](https://github.com/rtCamp/nginx-helper/issues/40), [#268](https://github.com/rtCamp/nginx-helper/pull/268) - by [Arafat Islam](https://github.com/arafatkn)
+* Fix pages and CPT URLs not being purged on moving to trash. [#191](https://github.com/rtCamp/nginx-helper/issues/191), [#267](https://github.com/rtCamp/nginx-helper/pull/267) - by [Arafat Islam](https://github.com/arafatkn)
+* Fix notice - Undefined index: path [#190](https://github.com/rtCamp/nginx-helper/issues/190), [#251](https://github.com/rtCamp/nginx-helper/issues/251), [#262](https://github.com/rtCamp/nginx-helper/pull/262) - by [George Lagonikas](https://github.com/glagonikas)
+* PHP 8.1 compatibility [#291](https://github.com/rtCamp/nginx-helper/issues/291), [#302](https://github.com/rtCamp/nginx-helper/pull/302) - by [Siddharth Tikekar](https://github.com/SID177)
+* Tested with WordPress 6.1 [#285](https://github.com/rtCamp/nginx-helper/pull/285)
 
 = 2.2.2 =
 * Add action `rt_nginx_helper_after_purge_all` to fire after the entire cache has been purged whatever caching type is used. [#232](https://github.com/rtCamp/nginx-helper/pull/232) - by [Julien-prrs](https://github.com/Julien-prrs)
@@ -428,5 +475,5 @@ Fix url escaping [#82](https://github.com/rtCamp/nginx-helper/pull/82) - by
 
 == Upgrade Notice ==
 
-= 2.2.2 =
-Nginx Helper 2.2.2, Add new "rt_nginx_helper_after_purge_all" action and fixes issues where settings not saved because the button's value localized (for any language) and "Custom Purge URL" option displays previous value.
+= 2.2.3 =
+Nginx Helper 2.2.3, Fix performance issue when saving nav menus, purging date archives for CPTs, purge page and post URLs when the post is trashed and passes the URL being purged in "rt_nginx_helper_purge_cached_file" hook as parameter.

@@ -1,7 +1,6 @@
 <?php
-// phpcs:ignoreFile
 
-namespace SkyVerge\WooCommerce\Facebook\Jobs;
+namespace WooCommerce\Facebook\Jobs;
 
 use Automattic\WooCommerce\ActionSchedulerJobFramework\AbstractChainedJob as FrameworkAbstractChainedJob;
 use Exception;
@@ -36,5 +35,4 @@ abstract class AbstractChainedJob extends FrameworkAbstractChainedJob {
 
 		$logger->stop( $process_name );
 	}
-
 }
