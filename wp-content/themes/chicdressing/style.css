@@ -25,11 +25,13 @@ Text Domain:	 chicdressing
 
 body {
   font-family: 'Kalam', cursive;
+  color: #333333;
 }
  
 body .page-content, .page-content select, .page-content input, .page-content textarea, .page-content .post-author a, .page-content .ashe-widget a, .page-content .comment-author {
-    color: #a5a5a5;
-    font-size: 12px;
+    color: #333333 !important;
+    font-size: 16px;
+    line-height: 2;
 }
 
 
@@ -69,10 +71,23 @@ body .header-logo a{
     transform: rotate(-2deg);
     margin:30px 40px;
     text-align:center;
-    color: #9d4c64 !important;
+    color: #663045 !important;
     line-height: 48px;
 }
 #chic-products ul.products li.product{
     background: #f6f6f6;
     padding-bottom: 20px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  height: 1px; width: 1px;
+  overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+  white-space: nowrap;
+}
+
+.post-date,
+.rpwwt-post-categories {
+    color: #545454 !important;
 }
