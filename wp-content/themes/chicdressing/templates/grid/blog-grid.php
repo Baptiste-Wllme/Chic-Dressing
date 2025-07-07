@@ -31,7 +31,7 @@
 			<article id="post-<?php the_ID(); ?>" <?php post_class($post_class); ?>>
 
 				<div class="post-media">
-					<a href="<?php echo esc_url( get_permalink() ); ?>"></a>
+					<a href="<?php echo esc_url( get_permalink() ); ?>" aria-label="<?php the_title_attribute(); ?>"></a>
 					<?php the_post_thumbnail('medium'); ?>
 				</div>
 

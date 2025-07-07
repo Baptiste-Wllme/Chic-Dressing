@@ -91,3 +91,15 @@ body .header-logo a{
 .rpwwt-post-categories {
     color: #545454 !important;
 }
+
+h3 {
+    padding-top: 50px;
+}
+
+.rpwwt-post-title {
+    color: #663045 !important;
+}
+
+.widget_wysija input[type="submit"] { 
+    background-color: #663045 !important;
+}
