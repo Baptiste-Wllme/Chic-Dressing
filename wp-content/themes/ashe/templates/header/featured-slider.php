@@ -74,7 +74,18 @@ $slider_data .= '}';
 
 	<div class="slider-item">
 
-		<div class="slider-item-bg" style="background-image:url(<?php echo esc_url($featured_image); ?>);"></div>
+		<div class="slider-item-bg">
+  			<img 
+  			  src="<?php echo esc_url($featured_image); ?>" 
+  			  alt="<?php the_title_attribute(); ?>" 
+  			  width="1920" height="1080" 
+  			  decoding="async" 
+  			  loading="lazy"
+  			  fetchpriority="high"
+  			  style="width: 100%; height: auto; object-fit: cover;"
+  			/>
+		</div>
+
 
 		<div class="cv-container image-overlay">
 			<div class="cv-outer">
