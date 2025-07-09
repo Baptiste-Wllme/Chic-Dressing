@@ -19,7 +19,7 @@ $first_image = wp_get_attachment_image_src( $first_slide->image_url, 'medium' )[
 
 				?>
 
-					<a href="<?php echo esc_url( home_url( '/' ) ); ?>" title="<?php esc_attr( bloginfo('name') ); ?>" class="logo-img">
+					<a href="<?php echo esc_url( home_url( '/' ) ); ?>" title="<?php esc_attr( bloginfo('name') ); ?>" class="logo-img" >
 						<?php esc_attr( bloginfo('name') ); ?>
 					</a>
 

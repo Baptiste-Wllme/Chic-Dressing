@@ -77,6 +77,7 @@ $slider_data .= '}';
 		<div class="slider-item-bg">
   			<img 
   			  src="<?php echo esc_url($featured_image); ?>" 
+			  srcset="<?php echo esc_url($featured_image); ?> 1920w"
   			  alt="<?php the_title_attribute(); ?>" 
   			  width="1920" height="1080" 
   			  decoding="async" 

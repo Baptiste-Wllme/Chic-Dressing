@@ -136,7 +136,7 @@
     "pgcache.comment_cookie_ttl": 1800,
     "pgcache.debug": false,
     "pgcache.debug_purge": false,
-    "pgcache.engine": "file",
+    "pgcache.engine": "file_generic",
     "pgcache.file.gc": 3600,
     "pgcache.file.nfs": false,
     "pgcache.file.locking": false,
@@ -1010,5 +1010,20 @@
     "imageservice.configuration_overloaded": true,
     "fragmentcache": {
         "engine": "file"
-    }
+    },
+    "page": "w3tc_general",
+    "_wpnonce": "9857fcaa92",
+    "_wp_http_referer": "\/wp-admin\/admin.php?page=w3tc_general",
+    "w3tc_save_options": "Save Settings",
+    "opcache.engine": "OPcache",
+    "opcache.validate_timestamps": "1",
+    "allcache.wp_cron": "0",
+    "extension.user-experience-emoji": "0",
+    "extension.user-experience-defer-scripts": "0",
+    "extension.user-experience-remove-cssjs": "0",
+    "extension.user-experience-preload-requests": "0",
+    "extension.user-experience-oembed": "0",
+    "file_locking": "0",
+    "file_nfs": "0",
+    "extension.imageservice": "0"
 }

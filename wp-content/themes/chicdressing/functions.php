@@ -13,4 +13,10 @@ function remove_parent_google_fonts() {
 add_action('wp_enqueue_scripts', 'remove_parent_google_fonts', 20);
 
 
- 
+ function chic_preload_slider_image() {
+    if (is_front_page() || is_home()) {
+        $featured_image_url = wp_get_attachment_image_src(get_post_thumbnail_id(), 'full')[0];
+        echo '<link rel="preload" as="image" href="' . esc_url($featured_image_url) . '" fetchpriority="high">';
+    }
+}
+add_action('wp_head', 'chic_preload_slider_image');
