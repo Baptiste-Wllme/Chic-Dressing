@@ -46,7 +46,7 @@ body .header-logo a{
 
 .chic-bouton{
     color: #ffffff;
-    background-color: #333333;
+    background-color: #8c2647;
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -58,7 +58,8 @@ body .header-logo a{
 }
 
 .chic-bouton:hover{
-    color:#d0527a !important;
+    background-color:#d0527a !important;
+    color: #ffffff !important;
 }
 
 #featured-slider{
@@ -75,7 +76,7 @@ body .header-logo a{
     transform: rotate(-2deg);
     margin:30px 40px;
     text-align:center;
-    color: #663045 !important;
+    color: #8c2647 !important;
     line-height: 48px;
 }
 #chic-products ul.products li.product{
@@ -101,16 +102,27 @@ h3 {
 }
 
 .rpwwt-post-title {
-    color: #663045 !important;
+    color: #8c2647 !important;
 }
 
 input[type="submit"] {
-    background-color: #663045 !important;
+    background-color: #8c2647 !important;
 }
 
-.post-media img {
-    width: 1000px !important;
-    height: auto;
+.wp-block-button a {
+    color: #ffffff !important;
+    font-weight: bold;
+    background-color: #8c2647;
+    border-radius: none;
+}
+
+.wp-block-button a:hover {
+    background-color: #545454 !important;
+}
+
+.post-categories a,
+.read-more a {
+    color: #8c2647 !important;
 }
 
 
@@ -118,6 +130,6 @@ input[type="submit"] {
   .slider-item-bg img {
     width: 100%;         
     height: auto;        
-    object-fit: cover;   
+    object-fit: cover;  
   }
 }
